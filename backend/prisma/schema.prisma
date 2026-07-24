@@ -1,0 +1,403 @@
+// =====================================================================
+// Prisma schema — PHASE 1 + PHASE 2
+// Phase 1 models: User, Patient, MedicalHistory, EmergencyContact,
+// PasswordResetToken.
+// Phase 2 adds: AvailabilitySlot, BlockedDate, Appointment (and the
+// AppointmentStatus / AppointmentMode / DayOfWeek enums) for the
+// availability + booking modules.
+// Resources, Payments, content modules etc. are still out of scope.
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+// -----------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------
+
+enum Role {
+  patient
+  admin
+}
+
+enum PatientStatus {
+  active
+  inactive
+  new
+}
+
+enum Language {
+  en
+  hi
+  mr
+}
+
+// -----------------------------------------------------------------
+// Phase 2 enums — appointments & availability.
+// -----------------------------------------------------------------
+
+enum AppointmentStatus {
+  pending
+  upcoming
+  completed
+  cancelled
+}
+
+// Matches the "online" / "offline" wording already used throughout
+// the frontend (appointment-booking page, mock-data/appointments.ts)
+// rather than introducing new terminology like "in_person".
+enum AppointmentMode {
+  online
+  offline
+}
+
+enum DayOfWeek {
+  sunday
+  monday
+  tuesday
+  wednesday
+  thursday
+  friday
+  saturday
+}
+
+// -----------------------------------------------------------------
+// Notification module enums.
+// -----------------------------------------------------------------
+
+enum NotificationType {
+  appointment_booked
+  appointment_confirmed
+  appointment_cancelled
+  appointment_rescheduled
+  general_admin
+}
+
+// -----------------------------------------------------------------
+// Resource module enum (Phase 4.3).
+// -----------------------------------------------------------------
+
+enum ResourceCategory {
+  worksheet
+  meditation
+  exercise
+  guide
+  pdf
+}
+
+// -----------------------------------------------------------------
+// User — both patients and the admin (psychologist) live here.
+// Admin accounts are NOT created via self-signup (see auth.service.ts).
+// -----------------------------------------------------------------
+model User {
+  id              String    @id @default(uuid())
+  name            String
+  email           String    @unique
+  passwordHash    String    @map("password_hash")
+  phone           String?
+  role            Role      @default(patient)
+  avatarInitials  String?   @map("avatar_initials")
+  language        Language  @default(en)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  patient             Patient?
+  passwordResetTokens PasswordResetToken[]
+  notifications       Notification[]
+  uploadedResources   Resource[]
+  sessionNotesWritten SessionNote[]
+  verifiedPayments    Payment[]            @relation("PaymentVerifier")
+
+  @@map("users")
+}
+
+// -----------------------------------------------------------------
+// Patient — 1:1 extension of a User with role = patient.
+// Created automatically at signup. Guest bookings (Phase 2) will also
+// create Patient rows without a linked User — see appointments phase.
+// -----------------------------------------------------------------
+model Patient {
+  id             String        @id @default(uuid())
+  userId         String        @unique @map("user_id")
+  primaryConcern String?       @map("primary_concern")
+  status         PatientStatus @default(new)
+  joinedDate     DateTime      @default(now()) @map("joined_date")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  user             User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  medicalHistory   MedicalHistory?
+  emergencyContact EmergencyContact?
+  appointments     Appointment[]
+  sessionNotes     SessionNote[]
+
+  @@map("patients")
+}
+
+// -----------------------------------------------------------------
+// MedicalHistory — 1:1 with Patient.
+// conditions/medications/allergies stored as JSON arrays of strings,
+// matching the frontend's MedicalHistory shape exactly
+// (lib/mock-data/patients.ts).
+// -----------------------------------------------------------------
+model MedicalHistory {
+  id          String   @id @default(uuid())
+  patientId   String   @unique @map("patient_id")
+  conditions  Json     @default("[]")
+  medications Json     @default("[]")
+  allergies   Json     @default("[]")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("medical_history")
+}
+
+// -----------------------------------------------------------------
+// EmergencyContact — 1:1 with Patient.
+// -----------------------------------------------------------------
+model EmergencyContact {
+  id           String  @id @default(uuid())
+  patientId    String  @unique @map("patient_id")
+  name         String
+  relationship String
+  phone        String
+  email        String?
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("emergency_contacts")
+}
+
+// -----------------------------------------------------------------
+// PasswordResetToken — the raw token is emailed to the user; only a
+// SHA-256 hash of it is ever stored here. usedAt is set once consumed
+// so it cannot be replayed.
+// -----------------------------------------------------------------
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_tokens")
+}
+
+// -----------------------------------------------------------------
+// AvailabilitySlot — admin-defined weekly recurring time slots.
+// Mirrors the frontend's fixed-slot model exactly (see
+// lib/mock-data/availability.ts): the admin enables/disables specific
+// pre-defined time ranges per weekday rather than a start/end +
+// duration range. A weekday with zero enabled slots is treated by the
+// frontend as "not working" — there is no separate isWorking column.
+// -----------------------------------------------------------------
+model AvailabilitySlot {
+  id        String    @id @default(uuid())
+  dayOfWeek DayOfWeek @map("day_of_week")
+  startTime String    @map("start_time") // "09:00"
+  endTime   String    @map("end_time") // "10:00"
+  isEnabled Boolean   @default(true) @map("is_enabled")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+
+  @@index([dayOfWeek])
+  @@map("availability_slots")
+}
+
+// -----------------------------------------------------------------
+// BlockedDate — single dates the admin has marked unavailable
+// (holidays, personal leave, etc.). Slot generation excludes any date
+// present here regardless of weekly availability.
+// -----------------------------------------------------------------
+model BlockedDate {
+  id        String   @id @default(uuid())
+  date      DateTime @db.Date
+  label     String?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([date])
+  @@map("blocked_dates")
+}
+
+// -----------------------------------------------------------------
+// Appointment — supports both logged-in patient bookings and guest
+// (public, unauthenticated) bookings. patientId is nullable for guest
+// bookings; guest contact fields live directly on this model rather
+// than a separate GuestAppointment table since the frontend's public
+// booking page only ever needs name/email/phone alongside the booking
+// itself, not a richer guest profile.
+// -----------------------------------------------------------------
+model Appointment {
+  id                  String            @id @default(uuid())
+  patientId           String?           @map("patient_id")
+  guestName           String?           @map("guest_name")
+  guestEmail          String?           @map("guest_email")
+  guestPhone          String?           @map("guest_phone")
+  service             String
+  date                DateTime          @db.Date
+  startTime           String            @map("start_time") // "14:00"
+  endTime             String            @map("end_time") // "15:00"
+  mode                AppointmentMode   @default(online)
+  status              AppointmentStatus @default(pending)
+  notes               String?           @db.Text
+  cancellationReason  String?           @map("cancellation_reason")
+  reminderSent        Boolean           @default(false) @map("reminder_sent")
+  createdAt           DateTime          @default(now()) @map("created_at")
+  updatedAt           DateTime          @updatedAt @map("updated_at")
+
+  patient     Patient?     @relation(fields: [patientId], references: [id], onDelete: SetNull)
+  sessionNote SessionNote?
+  payment     Payment?
+
+  @@index([patientId])
+  @@index([date])
+  @@map("appointments")
+}
+
+// -----------------------------------------------------------------
+// Notification — in-app notifications for both patients and admin.
+// recipientId always points at a `users` row: for patient-facing
+// notifications (booked/confirmed/cancelled/rescheduled) this is the
+// patient's own user id; for "general admin notification" it is an
+// admin user id. Kept as a single table (not split per role) since
+// the shape and read/unread behavior are identical for both.
+// relatedAppointmentId is a plain string (no FK) rather than a
+// relation to Appointment — appointments can later be hard-deleted
+// without needing to cascade/null out historical notification rows,
+// and the frontend never needs to join through it.
+// -----------------------------------------------------------------
+model Notification {
+  id                    String           @id @default(uuid())
+  recipientId           String           @map("recipient_id")
+  type                  NotificationType
+  title                 String
+  message               String           @db.Text
+  relatedAppointmentId  String?          @map("related_appointment_id")
+  isRead                Boolean          @default(false) @map("is_read")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @updatedAt @map("updated_at")
+
+  recipient User @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+
+  @@index([recipientId])
+  @@index([recipientId, isRead])
+  @@map("notifications")
+}
+
+// -----------------------------------------------------------------
+// Resource — admin-curated wellness library (Phase 4.3). Only
+// metadata + an external file URL is stored; no file binaries or
+// upload storage are introduced, per the phase scope ("store only
+// the file URL/path... keep upload handling simple").
+// -----------------------------------------------------------------
+model Resource {
+  id          String           @id @default(uuid())
+  title       String
+  description String?          @db.Text
+  category    ResourceCategory
+  fileUrl     String           @map("file_url")
+  fileName    String           @map("file_name")
+  uploadedBy  String           @map("uploaded_by")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  uploader User @relation(fields: [uploadedBy], references: [id], onDelete: Cascade)
+
+  @@index([category])
+  @@index([uploadedBy])
+  @@map("resources")
+}
+
+// -----------------------------------------------------------------
+// SessionNote — therapist's private clinical notes for a completed
+// appointment (Phase 4.4). 1:1 with Appointment via appointmentId.
+// therapistId/patientId are denormalized directly onto the row
+// (rather than only derived through appointment) so admin "my notes"
+// style queries and the patient's "my notes" query don't need to
+// join through Appointment just to filter by who wrote/owns it —
+// matches the denormalization already used by Resource.uploadedBy.
+// Only ever created once an appointment's status is `completed`;
+// enforced in session-note.service.ts, not at the DB level, since
+// status can still change after the note exists (no DB constraint
+// can express "was completed at creation time").
+// -----------------------------------------------------------------
+model SessionNote {
+  id               String   @id @default(uuid())
+  appointmentId    String   @unique @map("appointment_id")
+  therapistId      String   @map("therapist_id")
+  patientId        String   @map("patient_id")
+  diagnosisSummary String?  @map("diagnosis_summary") @db.Text
+  observations     String?  @db.Text
+  recommendations  String?  @db.Text
+  homework         String?  @db.Text
+  nextGoals        String?  @map("next_goals") @db.Text
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  therapist   User        @relation(fields: [therapistId], references: [id], onDelete: Cascade)
+  patient     Patient     @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([therapistId])
+  @@index([patientId])
+  @@map("session_notes")
+}
+
+// -----------------------------------------------------------------
+// Phase 4.8 enums — manual payment module.
+// -----------------------------------------------------------------
+
+enum PaymentStatus {
+  pending
+  verified
+  rejected
+}
+
+// -----------------------------------------------------------------
+// Payment — 1:1 with Appointment. Tracks the manual UPI payment
+// submitted by the patient after booking.
+// -----------------------------------------------------------------
+model Payment {
+  id                   String        @id @default(uuid())
+  appointmentId        String        @unique @map("appointment_id")
+  status               PaymentStatus @default(pending)
+  screenshotUrl        String?       @map("screenshot_url")
+  transactionReference String?       @map("transaction_reference")
+  remarks              String?       @db.Text
+  verifiedById         String?       @map("verified_by_id")
+  verifiedAt           DateTime?     @map("verified_at")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  appointment  Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  verifiedBy   User?       @relation("PaymentVerifier", fields: [verifiedById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("payments")
+}
+
+// -----------------------------------------------------------------
+// PaymentSettings — singleton row (id = "default"). Holds the
+// clinic's UPI / QR details shown to patients on the payment page.
+// -----------------------------------------------------------------
+model PaymentSettings {
+  id                  String   @id @default("default")
+  clinicName          String   @default("Art of Saving Mind") @map("clinic_name")
+  upiId               String   @default("8766804788@ybl") @map("upi_id")
+  qrImageUrl          String?  @map("qr_image_url")
+  paymentInstructions String?  @map("payment_instructions") @db.Text
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("payment_settings")
+}
