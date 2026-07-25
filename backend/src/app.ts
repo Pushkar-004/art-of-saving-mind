@@ -28,12 +28,11 @@ export function createApp(): Application {
   const app = express();
 
   app.use(helmet());
-  app.use(
-    cors({
-      origin: env.CORS_ORIGIN.split(',').map((origin) => origin.trim()),
-      credentials: true, // required so the httpOnly refresh-token cookie is sent/received
-    }),
-  );
+ app.use(cors({
+  origin: 'https://art-of-saving-mind.vercel.app',
+  credentials: true,
+}));
+
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(cookieParser());
