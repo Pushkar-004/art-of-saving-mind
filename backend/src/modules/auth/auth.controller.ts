@@ -11,8 +11,8 @@ const REFRESH_COOKIE_NAME = 'refreshToken';
 function refreshCookieOptions() {
   return {
     httpOnly: true,
-    secure: env.isProduction,
-    sameSite: 'strict' as const,
+    secure: true,
+    sameSite: 'none' as const,
     path: '/api/auth',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days — keep in sync with JWT_REFRESH_EXPIRES_IN
   };
@@ -114,8 +114,8 @@ async function logout(req: Request, res: Response, next: NextFunction) {
   try {
     res.clearCookie(REFRESH_COOKIE_NAME, {
       httpOnly: true,
-      secure: env.isProduction,
-      sameSite: 'strict',
+      secure: true,
+      sameSite: 'none' as const,
       path: '/api/auth',
     });
 
