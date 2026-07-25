@@ -68,6 +68,30 @@ export function getAccessToken(): string | null {
 }
 
 /**
+ * Store the refresh token in localStorage.
+ * NOTE: this is a testing-phase tradeoff — httpOnly cookies were removed
+ * because cross-site (Vercel <-> Render) cookies get blocked by mobile
+ * browsers (SameSite=None cross-site cookies are unreliable). Once the
+ * app is on a single custom domain (e.g. app.example.com + api.example.com)
+ * this should be switched back to httpOnly cookies for better security.
+ */
+const REFRESH_TOKEN_KEY = 'refreshToken'
+
+export function setRefreshToken(token: string | null) {
+  if (typeof window === 'undefined') return
+  if (token) {
+    localStorage.setItem(REFRESH_TOKEN_KEY, token)
+  } else {
+    localStorage.removeItem(REFRESH_TOKEN_KEY)
+  }
+}
+
+export function getRefreshToken(): string | null {
+  if (typeof window === 'undefined') return null
+  return localStorage.getItem(REFRESH_TOKEN_KEY)
+}
+
+/**
  * Core fetch wrapper for auth endpoints.
  * Throws an Error whose message is the backend's error message string.
  */
@@ -77,7 +101,6 @@ async function authFetch<T>(
 ): Promise<{ success: boolean; data: T; message?: string }> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
-    credentials: 'include', // send/receive httpOnly refresh-token cookie
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers ?? {}),
@@ -100,10 +123,14 @@ export async function login(
   email: string,
   password: string,
 ): Promise<ApiResponse<{ user: AuthUser; accessToken: string }>> {
-  const json = await authFetch<{ user: AuthUser; accessToken: string }>('/auth/login', {
-    method: 'POST',
-    body: JSON.stringify({ email, password }),
-  })
+  const json = await authFetch<{ user: AuthUser; accessToken: string; refreshToken: string }>(
+    '/auth/login',
+    {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    },
+  )
+  setRefreshToken(json.data.refreshToken)
   return { success: json.success, data: json.data, message: json.message }
 }
 
@@ -113,10 +140,14 @@ export async function signup(
   password: string,
   confirmPassword: string,
 ): Promise<ApiResponse<{ user: AuthUser; accessToken: string }>> {
-  const json = await authFetch<{ user: AuthUser; accessToken: string }>('/auth/signup', {
-    method: 'POST',
-    body: JSON.stringify({ fullName, email, password, confirmPassword }),
-  })
+  const json = await authFetch<{ user: AuthUser; accessToken: string; refreshToken: string }>(
+    '/auth/signup',
+    {
+      method: 'POST',
+      body: JSON.stringify({ fullName, email, password, confirmPassword }),
+    },
+  )
+  setRefreshToken(json.data.refreshToken)
   return { success: json.success, data: json.data, message: json.message }
 }
 
@@ -150,18 +181,31 @@ export async function logoutApi(): Promise<void> {
     await authFetch<null>('/auth/logout', { method: 'POST' })
   } catch {
     // Swallow errors — local state will still be cleared.
+  } finally {
+    setRefreshToken(null)
   }
 }
 
 /**
- * Try to get a new access token using the httpOnly refresh-token cookie.
+ * Try to get a new access token using the refresh token stored in localStorage.
  * Returns the new access token string, or null if refresh fails.
  */
 export async function refreshAccessToken(): Promise<string | null> {
   try {
-    const json = await authFetch<{ user: AuthUser; accessToken: string }>('/auth/refresh', { method: 'POST' })
+    const refreshToken = getRefreshToken()
+    if (!refreshToken) return null
+
+    const json = await authFetch<{ user: AuthUser; accessToken: string; refreshToken: string }>(
+      '/auth/refresh',
+      {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      },
+    )
+    setRefreshToken(json.data.refreshToken)
     return json.data.accessToken ?? null
   } catch {
+    setRefreshToken(null)
     return null
   }
 }
@@ -846,7 +890,6 @@ export async function getDashboardData(
  */
 async function downloadPDF(path: string, filename: string): Promise<void> {
   const res = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
     headers: {
       ...(_accessToken ? { Authorization: `Bearer ${_accessToken}` } : {}),
     },
@@ -941,7 +984,6 @@ export async function uploadPaymentProof(
     `${API_BASE}/payments/appointment/${appointmentId}/submit`,
     {
       method: 'POST',
-      credentials: 'include',
       headers: {
         ...(_accessToken ? { Authorization: `Bearer ${_accessToken}` } : {}),
         // Do NOT set Content-Type — browser sets it automatically with boundary for FormData

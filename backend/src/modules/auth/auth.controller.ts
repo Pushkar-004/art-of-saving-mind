@@ -22,11 +22,9 @@ async function signup(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.signup(req.body);
 
-    res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, refreshCookieOptions());
-
     sendSuccess(
       res,
-      { user: result.user, accessToken: result.tokens.accessToken },
+      { user: result.user, accessToken: result.tokens.accessToken, refreshToken: result.refreshToken },
       'Account created successfully',
       201,
     );
@@ -39,18 +37,15 @@ async function login(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await authService.login(req.body);
 
-    res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, refreshCookieOptions());
-
     sendSuccess(
       res,
-      { user: result.user, accessToken: result.tokens.accessToken },
+      { user: result.user, accessToken: result.tokens.accessToken, refreshToken: result.refreshToken },
       'Login successful',
     );
   } catch (err) {
     next(err);
   }
 }
-
 async function forgotPassword(req: Request, res: Response, next: NextFunction) {
   try {
     await authService.forgotPassword(req.body);
@@ -91,18 +86,16 @@ async function getCurrentUser(req: Request, res: Response, next: NextFunction) {
 
 async function refresh(req: Request, res: Response, next: NextFunction) {
   try {
-    const token = req.cookies?.[REFRESH_COOKIE_NAME];
+    const token = req.body?.refreshToken;
     if (!token) {
       throw AppError.unauthorized('Missing refresh token');
     }
 
     const result = await authService.refreshTokens(token);
 
-    res.cookie(REFRESH_COOKIE_NAME, result.refreshToken, refreshCookieOptions());
-
     sendSuccess(
       res,
-      { user: result.user, accessToken: result.accessToken },
+      { user: result.user, accessToken: result.accessToken, refreshToken: result.refreshToken },
       'Token refreshed successfully',
     );
   } catch (err) {
@@ -112,13 +105,6 @@ async function refresh(req: Request, res: Response, next: NextFunction) {
 
 async function logout(req: Request, res: Response, next: NextFunction) {
   try {
-    res.clearCookie(REFRESH_COOKIE_NAME, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'none' as const,
-      path: '/api/auth',
-    });
-
     sendSuccess(res, null, 'Logged out successfully');
   } catch (err) {
     next(err);
