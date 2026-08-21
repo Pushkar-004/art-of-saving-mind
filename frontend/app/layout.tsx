@@ -2,40 +2,23 @@ import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
 import localFont from 'next/font/local'
 import Script from 'next/script'
+import '@fontsource/lato/400.css'
+import '@fontsource/lato/700.css'
 
 import './globals.css'
 import { Toaster } from 'sonner'
 import Header from '@/components/layout/Header'
 import { LanguageProvider } from '@/lib/context/LanguageContext'
 import { AuthProvider } from '@/lib/context/AuthContext'
+// Static, multilingual virtual assistant (chatbot) — a Client Component,
+// rendered on every page from the root layout.
+import ChatWidget from '@/components/chatbot/ChatWidget'
 
 const geistMono = localFont({
   src: [
     { path: '../public/fonts/geist-mono/geist-mono-latin-wght-normal.woff2', style: 'normal' },
   ],
   variable: '--font-geist-mono',
-  display: 'swap',
-})
-
-const playfairDisplay = localFont({
-  src: [
-    { path: '../public/fonts/playfair/playfair-display-latin-400-normal.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/playfair/playfair-display-latin-500-normal.woff2', weight: '500', style: 'normal' },
-    { path: '../public/fonts/playfair/playfair-display-latin-600-normal.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/playfair/playfair-display-latin-700-normal.woff2', weight: '700', style: 'normal' },
-  ],
-  variable: '--font-playfair',
-  display: 'swap',
-})
-
-const inter = localFont({
-  src: [
-    { path: '../public/fonts/inter/inter-latin-400-normal.woff2', weight: '400', style: 'normal' },
-    { path: '../public/fonts/inter/inter-latin-500-normal.woff2', weight: '500', style: 'normal' },
-    { path: '../public/fonts/inter/inter-latin-600-normal.woff2', weight: '600', style: 'normal' },
-    { path: '../public/fonts/inter/inter-latin-700-normal.woff2', weight: '700', style: 'normal' },
-  ],
-  variable: '--font-inter',
   display: 'swap',
 })
 
@@ -51,9 +34,9 @@ const notoSansDevanagari = localFont({
 })
 
 export const metadata: Metadata = {
-  title: 'Art of Saving Mind - Therapy with Miss Pooja Sunil Ghadge',
+  title: 'Art of Saving Mind - Therapy with Miss. Pooja Sunil Ghadge',
   description:
-    'Premium online and offline therapy with Miss Pooja Sunil Ghadge, M.A. Clinical Psychology.',
+    'Premium online and offline therapy with Miss. Pooja Sunil Ghadge, M.A. Clinical Psychology.',
   generator: 'v0.app',
   icons: {
     icon: '/icon.svg',
@@ -81,7 +64,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${geistMono.variable} ${playfairDisplay.variable} ${inter.variable} ${notoSansDevanagari.variable} bg-background`}
+      className={`${geistMono.variable} ${notoSansDevanagari.variable} bg-background`}
     >
       <head>
         <Script
@@ -112,6 +95,7 @@ export default function RootLayout({
             <Header />
             {children}
             <Toaster position="bottom-right" />
+            <ChatWidget />
           </AuthProvider>
         </LanguageProvider>
 

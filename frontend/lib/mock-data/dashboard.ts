@@ -43,7 +43,7 @@ export const patientMetrics: MetricTile[] = [
     icon: 'Calendar',
     label: 'Next Session',
     value: 'Tomorrow',
-    subtext: '2:00 PM with Miss Pooja',
+    subtext: '2:00 PM with Miss. Pooja Sunil Ghadge',
   },
 ]
 
@@ -137,5 +137,5 @@ export const adminRecentActivity: ActivityItem[] = [
   { id: 'ac-2', text: 'Payment of ₹2,000 received from Rahul Mehta', time: '48 min ago', type: 'payment' },
   { id: 'ac-3', text: 'Vikram Patel registered as a new patient', time: '2 hours ago', type: 'patient' },
   { id: 'ac-4', text: 'Emily Carter cancelled her follow-up session', time: '5 hours ago', type: 'cancellation' },
-  { id: 'ac-5', text: 'Aisha Khan booked a Couples Counseling session', time: 'Yesterday', type: 'booking' },
+  { id: 'ac-5', text: 'Aisha Khan booked a Marital Counselling session', time: 'Yesterday', type: 'booking' },
 ]

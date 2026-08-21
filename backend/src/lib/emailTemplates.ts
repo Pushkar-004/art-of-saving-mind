@@ -4,7 +4,7 @@
  * Each function returns { subject, html } ready to be passed
  * directly to nodemailer's `sendMail` options.
  *
- * Design: single-column, inline-friendly HTML that renders well in
+ * Design: single-column, inline-friendly HTML that renders well ins
  * Gmail / Outlook without requiring external CSS files.
  */
 
@@ -126,21 +126,21 @@ export function appointmentBookedEmail(params: {
   dateLabel: string;
   time: string;
 }): { subject: string; html: string } {
-  const subject = 'Appointment Booked Successfully';
+  const subject = 'Booking Request Received — Payment Verification Required';
 
   const body = `
     <p style="margin:0 0 16px;color:#374151;font-size:15px;line-height:1.6;">
       Hello ${params.patientName},
     </p>
     <p style="margin:0 0 24px;color:#374151;font-size:15px;line-height:1.6;">
-      Your appointment has been booked successfully.
+      We have received your booking request. Your appointment is pending payment verification and is not confirmed yet.
     </p>
 
     ${detailTable([
       { label: 'Therapist', value: params.therapistName },
       { label: 'Date', value: params.dateLabel },
       { label: 'Time', value: params.time },
-      { label: 'Status', value: 'Pending Approval' },
+      { label: 'Status', value: 'Pending payment verification' },
     ])}
 
     <p style="margin:24px 0 0;color:#374151;font-size:15px;line-height:1.6;">

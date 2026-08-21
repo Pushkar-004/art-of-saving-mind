@@ -15,18 +15,41 @@ import { useT } from '@/lib/i18n/useT'
 // (sent to the backend as-is). `translationKey` resolves the on-screen
 // label only — switching language never changes the submitted value.
 const SERVICE_KEYS = [
-  { key: 'Anxiety Counseling', translationKey: 'services.anxietyTitle' },
-  { key: 'Stress Management', translationKey: 'services.stressTitle' },
-  { key: 'Relationship Counseling', translationKey: 'services.relationshipTitle' },
+  { key: 'Counselling & Therapy', translationKey: 'services.counsellingTitle' },
+  { key: 'Child Counselling', translationKey: 'services.childTitle' },
   { key: 'Career Guidance', translationKey: 'services.careerTitle' },
-  { key: 'Individual Therapy', translationKey: 'services.individualTitle' },
-  { key: 'Child Psychology', translationKey: 'services.childTitle' },
+  { key: 'Marital Counselling', translationKey: 'services.maritalTitle' },
+  { key: 'Relationship Counselling', translationKey: 'services.relationshipTitle' },
 ] as const
 
 type ApiSlot = {
   date: string
   start: string
   end: string
+}
+
+function getDurationMinutes(startTime: string, endTime: string): number {
+  const [startHour, startMinute] = startTime.split(':').map(Number)
+  const [endHour, endMinute] = endTime.split(':').map(Number)
+  const startTotal = startHour * 60 + startMinute
+  const endTotal = endHour * 60 + endMinute
+  return Math.max(30, endTotal - startTotal || 60)
+}
+
+function getAppointmentPrice(service: string, mode: 'online' | 'offline', durationMinutes: number): number {
+  const basePriceMap: Record<string, number> = {
+    'Counselling & Therapy': 1200,
+    'Child Counselling': 1200,
+    'Career Guidance': 500,
+    'Marital Counselling': 1200,
+    'Relationship Counselling': 1200,
+  }
+
+  const basePrice = basePriceMap[service] ?? 1200
+  const durationHours = Math.max(durationMinutes / 60, 1)
+  const subtotal = basePrice * durationHours
+  const discounted = mode === 'online' ? subtotal * 0.95 : subtotal
+  return Math.round(discounted)
 }
 
 function formatTime12(time: string) {
@@ -41,7 +64,7 @@ function formatTime12(time: string) {
 }
 
 export default function AppointmentBookingPage() {
-  const { user } = useAuth()
+  const { user, isLoading: isAuthLoading } = useAuth()
   const { t } = useT()
 
   const [step, setStep] = useState(1)
@@ -61,6 +84,24 @@ export default function AppointmentBookingPage() {
   // real slots from backend
   const [slots, setSlots] = useState<ApiSlot[]>([])
   const [slotsLoading, setSlotsLoading] = useState(true)
+
+  const selectedSlot = useMemo(() => {
+    if (!formData.date || !formData.time) return null
+    return slots.find((slot) => slot.date === formData.date && slot.start === formData.time) ?? null
+  }, [formData.date, formData.time, slots])
+
+  const selectedSessionDuration = selectedSlot
+    ? getDurationMinutes(selectedSlot.start, selectedSlot.end)
+    : 60
+
+  const selectedSessionPrice = getAppointmentPrice(
+    formData.service,
+    formData.sessionType,
+    selectedSessionDuration,
+  )
+
+  const offlinePrice = getAppointmentPrice(formData.service, 'offline', selectedSessionDuration)
+  const onlinePrice = getAppointmentPrice(formData.service, 'online', selectedSessionDuration)
 
   useEffect(() => {
     const today = format(new Date(), 'yyyy-MM-dd')
@@ -91,6 +132,13 @@ export default function AppointmentBookingPage() {
       email: prev.email || user.email || '',
     }))
   }, [user])
+
+  useEffect(() => {
+    if (isAuthLoading || user?.role === 'patient') return
+
+    const redirect = encodeURIComponent('/appointment-booking')
+    window.location.href = `/auth/login?redirect=${redirect}`
+  }, [isAuthLoading, user])
 
   // unique available dates
   const availableDates = useMemo(() => {
@@ -134,10 +182,14 @@ export default function AppointmentBookingPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (user?.role !== 'patient') {
+      toast.error('Please log in as a patient to book an appointment.')
+      return
+    }
     setSubmitting(true)
 
     try {
-      await bookAppointment({
+      const appointment = await bookAppointment({
         service: formData.service,
         date: formData.date,
         startTime: formData.time,
@@ -148,12 +200,21 @@ export default function AppointmentBookingPage() {
         guestPhone: formData.phone,
       })
 
+      const basePrice = getAppointmentPrice(
+        formData.service,
+        'offline',
+        selectedSessionDuration,
+      )
+      const onlinePrice = getAppointmentPrice(formData.service, 'online', selectedSessionDuration)
+
       toast.success(t('toast.appointmentBooked'))
 
       setTimeout(() => {
-        window.location.href = user
-          ? '/dashboard/patient/appointments'
-          : '/auth/login?redirect=/dashboard/patient/appointments'
+        const query = new URLSearchParams({
+          appointmentId: appointment.data.appointment.id,
+        })
+
+        window.location.href = `/dashboard/patient/payment?${query.toString()}`
       }, 1500)
     } catch (err) {
       console.error('Booking failed:', err)
@@ -506,6 +567,21 @@ export default function AppointmentBookingPage() {
                         <p className="font-semibold text-foreground">
                           {formData.time ? formatTime12(formData.time) : ''}
                         </p>
+                      </div>
+
+                      <div className="col-span-2">
+                        <p className="mb-1 text-xs text-muted-foreground">Appointment fee</p>
+                        <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
+                          <div className="flex items-center justify-between gap-3 text-sm">
+                            <span className="text-muted-foreground">Pay at reception</span>
+                            <span className="font-semibold text-foreground">₹{offlinePrice.toLocaleString('en-IN')}</span>
+                          </div>
+                          <div className="mt-2 flex items-center justify-between gap-3 text-sm">
+                            <span className="text-muted-foreground">Online payment</span>
+                            <span className="font-semibold text-primary">₹{onlinePrice.toLocaleString('en-IN')}</span>
+                          </div>
+                          <p className="mt-2 text-xs text-muted-foreground">Online sessions receive a 5% discount automatically.</p>
+                        </div>
                       </div>
                     </div>
                   </GlassCard>

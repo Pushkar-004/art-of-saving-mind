@@ -30,7 +30,7 @@ export interface AuthUser {
   id: string
   name: string
   email: string
-  role: 'patient' | 'admin'
+  role: 'patient' | 'admin' | 'psychologist'
   avatarInitials: string
 }
 
@@ -408,6 +408,8 @@ export interface Appointment {
   patientInitials: string
   service: string
   therapist: string
+  assignedPsychologistId: string | null
+  assignedPsychologistName: string | null
   date: string
   day: string
   month: string
@@ -419,6 +421,48 @@ export interface Appointment {
   guestEmail?: string | null
   guestPhone?: string | null
   isGuest: boolean
+}
+
+export interface Psychologist {
+  id: string
+  name: string
+  email: string
+  phone: string | null
+  avatarInitials: string
+  isActive: boolean
+  assignedAppointmentCount: number
+  assignedPatientCount: number
+}
+
+export async function getPsychologists(): Promise<ApiResponse<{ psychologists: Psychologist[] }>> {
+  return apiFetch('/psychologists')
+}
+
+export async function createPsychologist(payload: { name: string; email: string; phone?: string; password: string }): Promise<ApiResponse<{ psychologist: Psychologist }>> {
+  return apiFetch('/psychologists', { method: 'POST', body: JSON.stringify(payload) })
+}
+
+export async function setPsychologistActive(id: string, isActive: boolean): Promise<ApiResponse<{ psychologist: Psychologist }>> {
+  return apiFetch(`/psychologists/${id}/status`, { method: 'PATCH', body: JSON.stringify({ isActive }) })
+}
+
+export async function assignAppointmentAsAdmin(id: string, psychologistId: string): Promise<ApiResponse<{ appointment: Appointment }>> {
+  return apiFetch(`/appointments/admin/${id}/assign`, { method: 'POST', body: JSON.stringify({ psychologistId }) })
+}
+export async function handleAppointmentMyselfAsAdmin(id: string): Promise<ApiResponse<{ appointment: Appointment }>> {
+  return apiFetch(`/appointments/admin/${id}/handle-myself`, { method: 'POST' })
+}
+
+export interface PsychologistDashboard {
+  assignedPatients: number
+  upcomingAppointments: number
+  todayAppointments: number
+  completedAppointments: number
+  appointments: Appointment[]
+}
+
+export async function getPsychologistDashboard(): Promise<ApiResponse<{ dashboard: PsychologistDashboard }>> {
+  return apiFetch('/appointments/psychologist/dashboard')
 }
 
 export interface BookAppointmentPayload {
@@ -602,6 +646,8 @@ export interface Resource {
   category: ResourceCategory
   fileUrl: string
   fileName: string
+  thumbnailUrl: string | null
+  isPublished: boolean
   uploadedBy: string
   uploadedByName: string
   createdAt: string
@@ -613,6 +659,8 @@ export interface CreateResourceInput {
   category: ResourceCategory
   fileUrl: string
   fileName: string
+  thumbnailUrl?: string
+  isPublished?: boolean
 }
 
 export type UpdateResourceInput = Partial<CreateResourceInput>
@@ -942,6 +990,7 @@ export interface Payment {
   verifiedByName: string | null
   verifiedAt: string | null
   createdAt: string
+  amountInPaise: number
 }
 
 export interface AdminPayment extends Payment {
@@ -1023,48 +1072,6 @@ export async function updatePaymentSettings(
     method: 'PATCH',
     body: JSON.stringify(payload),
   })
-  return { success: json.success, data: json.data, message: json.message }
-}
-
-export interface RazorpayOrderResponse {
-  orderId: string
-  amount: number
-  currency: string
-  keyId: string
-  clinicName: string
-  description: string
-  prefill: {
-    name: string
-    email: string
-    phone: string
-  }
-}
-
-export async function createRazorpayOrder(
-  appointmentId: string,
-): Promise<ApiResponse<{ order: RazorpayOrderResponse }>> {
-  const json = await apiFetch<{ order: RazorpayOrderResponse }>(
-    `/payments/appointment/${appointmentId}/razorpay/create-order`,
-    { method: 'POST' },
-  )
-  return { success: json.success, data: json.data, message: json.message }
-}
-
-export async function verifyRazorpayPayment(
-  appointmentId: string,
-  payload: {
-    razorpay_order_id: string
-    razorpay_payment_id: string
-    razorpay_signature: string
-  },
-): Promise<ApiResponse<{ payment: Payment }>> {
-  const json = await apiFetch<{ payment: Payment }>(
-    `/payments/appointment/${appointmentId}/razorpay/verify`,
-    {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    },
-  )
   return { success: json.success, data: json.data, message: json.message }
 }
 

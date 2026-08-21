@@ -13,6 +13,8 @@ export interface AppointmentDTO {
   patientInitials: string;
   service: string;
   therapist: string;
+  assignedPsychologistId: string | null;
+  assignedPsychologistName: string | null;
   date: string; // "Thursday, Mar 28" / "Tomorrow" / "Today"
   day: string; // "28"
   month: string; // "Mar"

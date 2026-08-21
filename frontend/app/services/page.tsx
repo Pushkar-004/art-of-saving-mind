@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { Brain, TrendingUp, Heart, Briefcase, Users, Baby, Clock, Target, Shield, ArrowRight } from 'lucide-react'
+import { Brain, Heart, Briefcase, Users, Baby, Clock, Target, Shield, ArrowRight } from 'lucide-react'
 import GlassCard from '@/components/shared/GlassCard'
 import Footer from '@/components/layout/Footer'
 import { useT } from '@/lib/i18n/useT'
@@ -13,42 +13,29 @@ export default function ServicesPage() {
   const services = [
     {
       icon: Brain,
-      title: t('services.anxietyTitle'),
-      shortDesc: t('services.anxietyShortDesc'),
-      fullDesc: t('services.anxietyFullDesc'),
+      title: t('services.counsellingTitle'),
+      shortDesc: t('services.counsellingShortDesc'),
+      fullDesc: t('services.counsellingFullDesc'),
       benefits: [
-        t('services.benefitAnxietyReduction'),
+        t('services.benefitEmotionalSupport'),
         t('services.benefitCopingStrategies'),
-        t('services.benefitPanicManagement'),
-        t('services.benefitConfidenceBuilding'),
+        t('services.benefitConfidentialSpace'),
+        t('services.benefitPersonalGrowth'),
       ],
       color: 'from-emerald-400 to-teal-500',
     },
     {
-      icon: TrendingUp,
-      title: t('services.stressTitle'),
-      shortDesc: t('services.stressShortDesc'),
-      fullDesc: t('services.stressFullDesc'),
+      icon: Baby,
+      title: t('services.childTitle'),
+      shortDesc: t('services.childShortDesc'),
+      fullDesc: t('services.childFullDesc'),
       benefits: [
-        t('services.benefitStressReduction'),
-        t('services.benefitResilienceBuilding'),
-        t('services.benefitWorkLifeBalance'),
-        t('services.benefitEnergyManagement'),
+        t('services.benefitEmotionalDevelopment'),
+        t('services.benefitBehavioralSupport'),
+        t('services.benefitSchoolPerformance'),
+        t('services.benefitFamilyHarmony'),
       ],
-      color: 'from-blue-400 to-cyan-500',
-    },
-    {
-      icon: Heart,
-      title: t('services.relationshipTitle'),
-      shortDesc: t('services.relationshipShortDesc'),
-      fullDesc: t('services.relationshipFullDesc'),
-      benefits: [
-        t('services.benefitBetterCommunication'),
-        t('services.benefitConflictResolution'),
-        t('services.benefitEmotionalIntimacy'),
-        t('services.benefitHealthyBoundaries'),
-      ],
-      color: 'from-rose-400 to-pink-500',
+      color: 'from-sky-400 to-blue-500',
     },
     {
       icon: Briefcase,
@@ -64,30 +51,30 @@ export default function ServicesPage() {
       color: 'from-amber-400 to-orange-500',
     },
     {
-      icon: Users,
-      title: t('services.individualTitle'),
-      shortDesc: t('services.individualShortDesc'),
-      fullDesc: t('services.individualFullDesc'),
+      icon: Heart,
+      title: t('services.maritalTitle'),
+      shortDesc: t('services.maritalShortDesc'),
+      fullDesc: t('services.maritalFullDesc'),
       benefits: [
-        t('services.benefitSelfDiscovery'),
-        t('services.benefitEmotionalHealing'),
-        t('services.benefitPersonalGrowth'),
-        t('services.benefitLifePurpose'),
+        t('services.benefitBetterCommunication'),
+        t('services.benefitConflictResolution'),
+        t('services.benefitTrustBuilding'),
+        t('services.benefitHealthyBoundaries'),
       ],
-      color: 'from-violet-400 to-purple-500',
+      color: 'from-rose-400 to-pink-500',
     },
     {
-      icon: Baby,
-      title: t('services.childTitle'),
-      shortDesc: t('services.childShortDesc'),
-      fullDesc: t('services.childFullDesc'),
+      icon: Users,
+      title: t('services.relationshipTitle'),
+      shortDesc: t('services.relationshipShortDesc'),
+      fullDesc: t('services.relationshipFullDesc'),
       benefits: [
-        t('services.benefitEmotionalDevelopment'),
-        t('services.benefitBehavioralSupport'),
-        t('services.benefitSchoolPerformance'),
-        t('services.benefitFamilyHarmony'),
+        t('services.benefitCommunicationSkills'),
+        t('services.benefitEmotionalIntimacy'),
+        t('services.benefitBoundarySetting'),
+        t('services.benefitStrongerConnections'),
       ],
-      color: 'from-sky-400 to-blue-500',
+      color: 'from-violet-400 to-purple-500',
     },
   ]
 

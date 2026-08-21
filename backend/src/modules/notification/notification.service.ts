@@ -116,6 +116,7 @@ async function notifyAppointmentBooked(params: {
   appointmentId: string;
   patientName: string;
   patientEmail?: string | null; // present for guests (guestEmail) and logged-in patients
+  patientPhone?: string | null; // captured at booking time (guestPhone or user.phone)
   therapistName: string;
   service: string;
   dateLabel: string;
@@ -153,13 +154,8 @@ async function notifyAppointmentBooked(params: {
         err,
       );
     });
-  } else {
-    // eslint-disable-next-line no-console
-    console.warn(
-      `[notificationService] No email address available for appointment ${params.appointmentId} ` +
-        `(patient: ${params.patientName}) — booking confirmation email was not sent.`,
-    );
   }
+
 }
 
 async function notifyAppointmentConfirmed(params: {
@@ -169,29 +165,44 @@ async function notifyAppointmentConfirmed(params: {
   service: string;
   dateLabel: string;
   time: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
 }): Promise<void> {
-  await create(
-    params.recipientUserId,
-    'appointment_confirmed',
-    'Appointment confirmed',
-    `Your ${params.service} appointment on ${params.dateLabel} at ${params.time} has been confirmed.`,
-    params.appointmentId,
-  );
+  if (params.recipientUserId) {
+    await create(
+      params.recipientUserId,
+      'appointment_confirmed',
+      'Appointment confirmed',
+      `Your ${params.service} appointment on ${params.dateLabel} at ${params.time} has been confirmed.`,
+      params.appointmentId,
+    );
 
-  // Look up the user's email to send the confirmation email
-  const user = await prisma.user.findUnique({
-    where: { id: params.recipientUserId },
-    select: { email: true, name: true },
-  });
-  if (user) {
-    void sendAppointmentConfirmedEmail({
-      to: user.email,
-      patientName: user.name,
-      therapistName: params.therapistName,
-      service: params.service,
-      dateLabel: params.dateLabel,
-      time: params.time,
+    // Look up the user's email to send the confirmation email
+    const user = await prisma.user.findUnique({
+      where: { id: params.recipientUserId },
+      select: { email: true, name: true, phone: true },
     });
+    if (user) {
+      void sendAppointmentConfirmedEmail({
+        to: user.email,
+        patientName: user.name,
+        therapistName: params.therapistName,
+        service: params.service,
+        dateLabel: params.dateLabel,
+        time: params.time,
+      });
+    }
+  } else if (params.guestEmail || params.guestPhone) {
+    if (params.guestEmail) {
+      void sendAppointmentConfirmedEmail({
+        to: params.guestEmail,
+        patientName: 'Guest',
+        therapistName: params.therapistName,
+        service: params.service,
+        dateLabel: params.dateLabel,
+        time: params.time,
+      });
+    }
   }
 }
 
@@ -203,29 +214,44 @@ async function notifyAppointmentRejected(params: {
   dateLabel: string;
   time: string;
   reason?: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
 }): Promise<void> {
   const reasonSuffix = params.reason ? ` Reason: ${params.reason}` : '';
-  await create(
-    params.recipientUserId,
-    'appointment_cancelled',
-    'Appointment rejected',
-    `Your ${params.service} appointment request on ${params.dateLabel} at ${params.time} has been rejected.${reasonSuffix}`,
-    params.appointmentId,
-  );
+  if (params.recipientUserId) {
+    await create(
+      params.recipientUserId,
+      'appointment_cancelled',
+      'Appointment rejected',
+      `Your ${params.service} appointment request on ${params.dateLabel} at ${params.time} has been rejected.${reasonSuffix}`,
+      params.appointmentId,
+    );
 
-  const user = await prisma.user.findUnique({
-    where: { id: params.recipientUserId },
-    select: { email: true, name: true },
-  });
-  if (user) {
-    void sendAppointmentRejectedEmail({
-      to: user.email,
-      patientName: user.name,
-      therapistName: params.therapistName,
-      dateLabel: params.dateLabel,
-      time: params.time,
-      reason: params.reason,
+    const user = await prisma.user.findUnique({
+      where: { id: params.recipientUserId },
+      select: { email: true, name: true, phone: true },
     });
+    if (user) {
+      void sendAppointmentRejectedEmail({
+        to: user.email,
+        patientName: user.name,
+        therapistName: params.therapistName,
+        dateLabel: params.dateLabel,
+        time: params.time,
+        reason: params.reason,
+      });
+    }
+  } else if (params.guestEmail || params.guestPhone) {
+    if (params.guestEmail) {
+      void sendAppointmentRejectedEmail({
+        to: params.guestEmail,
+        patientName: 'Guest',
+        therapistName: params.therapistName,
+        dateLabel: params.dateLabel,
+        time: params.time,
+        reason: params.reason,
+      });
+    }
   }
 }
 
@@ -236,29 +262,44 @@ async function notifyAppointmentCancelled(params: {
   dateLabel: string;
   time: string;
   reason?: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
 }): Promise<void> {
   const reasonSuffix = params.reason ? ` Reason: ${params.reason}` : '';
-  await create(
-    params.recipientUserId,
-    'appointment_cancelled',
-    'Appointment cancelled',
-    `Your ${params.service} appointment on ${params.dateLabel} at ${params.time} has been cancelled.${reasonSuffix}`,
-    params.appointmentId,
-  );
+  if (params.recipientUserId) {
+    await create(
+      params.recipientUserId,
+      'appointment_cancelled',
+      'Appointment cancelled',
+      `Your ${params.service} appointment on ${params.dateLabel} at ${params.time} has been cancelled.${reasonSuffix}`,
+      params.appointmentId,
+    );
 
-  const user = await prisma.user.findUnique({
-    where: { id: params.recipientUserId },
-    select: { email: true, name: true },
-  });
-  if (user) {
-    void sendAppointmentCancelledEmail({
-      to: user.email,
-      patientName: user.name,
-      service: params.service,
-      dateLabel: params.dateLabel,
-      time: params.time,
-      reason: params.reason,
+    const user = await prisma.user.findUnique({
+      where: { id: params.recipientUserId },
+      select: { email: true, name: true, phone: true },
     });
+    if (user) {
+      void sendAppointmentCancelledEmail({
+        to: user.email,
+        patientName: user.name,
+        service: params.service,
+        dateLabel: params.dateLabel,
+        time: params.time,
+        reason: params.reason,
+      });
+    }
+  } else if (params.guestEmail || params.guestPhone) {
+    if (params.guestEmail) {
+      void sendAppointmentCancelledEmail({
+        to: params.guestEmail,
+        patientName: 'Guest',
+        service: params.service,
+        dateLabel: params.dateLabel,
+        time: params.time,
+        reason: params.reason,
+      });
+    }
   }
 }
 
@@ -268,27 +309,41 @@ async function notifyAppointmentRescheduled(params: {
   service: string;
   dateLabel: string;
   time: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
 }): Promise<void> {
-  await create(
-    params.recipientUserId,
-    'appointment_rescheduled',
-    'Appointment rescheduled',
-    `Your ${params.service} appointment has been rescheduled to ${params.dateLabel} at ${params.time}.`,
-    params.appointmentId,
-  );
+  if (params.recipientUserId) {
+    await create(
+      params.recipientUserId,
+      'appointment_rescheduled',
+      'Appointment rescheduled',
+      `Your ${params.service} appointment has been rescheduled to ${params.dateLabel} at ${params.time}.`,
+      params.appointmentId,
+    );
 
-  const user = await prisma.user.findUnique({
-    where: { id: params.recipientUserId },
-    select: { email: true, name: true },
-  });
-  if (user) {
-    void sendAppointmentRescheduledEmail({
-      to: user.email,
-      patientName: user.name,
-      service: params.service,
-      dateLabel: params.dateLabel,
-      time: params.time,
+    const user = await prisma.user.findUnique({
+      where: { id: params.recipientUserId },
+      select: { email: true, name: true, phone: true },
     });
+    if (user) {
+      void sendAppointmentRescheduledEmail({
+        to: user.email,
+        patientName: user.name,
+        service: params.service,
+        dateLabel: params.dateLabel,
+        time: params.time,
+      });
+    }
+  } else if (params.guestEmail || params.guestPhone) {
+    if (params.guestEmail) {
+      void sendAppointmentRescheduledEmail({
+        to: params.guestEmail,
+        patientName: 'Guest',
+        service: params.service,
+        dateLabel: params.dateLabel,
+        time: params.time,
+      });
+    }
   }
 }
 
@@ -323,27 +378,41 @@ async function notifyPaymentVerified(params: {
   service: string;
   date: string;
   time: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
 }): Promise<void> {
-  await create(
-    params.recipientUserId,
-    'general_admin',
-    'Payment verified',
-    `Your payment for the ${params.service} appointment has been verified. Your appointment is confirmed.`,
-    params.appointmentId,
-  );
+  if (params.recipientUserId) {
+    await create(
+      params.recipientUserId,
+      'general_admin',
+      'Payment verified',
+      `Your payment for the ${params.service} appointment has been verified. Your appointment is confirmed.`,
+      params.appointmentId,
+    );
 
-  const user = await prisma.user.findUnique({
-    where: { id: params.recipientUserId },
-    select: { email: true, name: true },
-  });
-  if (user) {
-    void sendPaymentVerifiedEmail({
-      to: user.email,
-      patientName: user.name,
-      therapistName: params.therapistName,
-      date: params.date,
-      time: params.time,
+    const user = await prisma.user.findUnique({
+      where: { id: params.recipientUserId },
+      select: { email: true, name: true, phone: true },
     });
+    if (user) {
+      void sendPaymentVerifiedEmail({
+        to: user.email,
+        patientName: user.name,
+        therapistName: params.therapistName,
+        date: params.date,
+        time: params.time,
+      });
+    }
+  } else if (params.guestEmail || params.guestPhone) {
+    if (params.guestEmail) {
+      void sendPaymentVerifiedEmail({
+        to: params.guestEmail,
+        patientName: 'Guest',
+        therapistName: params.therapistName,
+        date: params.date,
+        time: params.time,
+      });
+    }
   }
 }
 
@@ -353,26 +422,39 @@ async function notifyPaymentRejected(params: {
   therapistName: string;
   service: string;
   remarks: string;
+  guestEmail?: string | null;
+  guestPhone?: string | null;
 }): Promise<void> {
-  await create(
-    params.recipientUserId,
-    'general_admin',
-    'Payment rejected',
-    `Your payment for the ${params.service} appointment was rejected. Reason: ${params.remarks}. Please re-upload a valid payment screenshot.`,
-    params.appointmentId,
-  );
+  if (params.recipientUserId) {
+    await create(
+      params.recipientUserId,
+      'general_admin',
+      'Payment rejected',
+      `Your payment for the ${params.service} appointment was rejected. Reason: ${params.remarks}. Please re-upload a valid payment screenshot.`,
+      params.appointmentId,
+    );
 
-  const user = await prisma.user.findUnique({
-    where: { id: params.recipientUserId },
-    select: { email: true, name: true },
-  });
-  if (user) {
-    void sendPaymentRejectedEmail({
-      to: user.email,
-      patientName: user.name,
-      therapistName: params.therapistName,
-      reason: params.remarks,
+    const user = await prisma.user.findUnique({
+      where: { id: params.recipientUserId },
+      select: { email: true, name: true, phone: true },
     });
+    if (user) {
+      void sendPaymentRejectedEmail({
+        to: user.email,
+        patientName: user.name,
+        therapistName: params.therapistName,
+        reason: params.remarks,
+      });
+    }
+  } else if (params.guestEmail || params.guestPhone) {
+    if (params.guestEmail) {
+      void sendPaymentRejectedEmail({
+        to: params.guestEmail,
+        patientName: 'Guest',
+        therapistName: params.therapistName,
+        reason: params.remarks,
+      });
+    }
   }
 }
 
@@ -390,7 +472,24 @@ async function notifyAppointmentReminder(params: {
     `Reminder: Your ${params.service} appointment is scheduled for ${params.dateLabel} at ${params.time}.`,
     params.appointmentId,
   );
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id: params.recipientUserId,
+    },
+    select: {
+      name: true,
+      phone: true,
+    },
+  });
+
+  if (!user) return;
+
 }
+
+/* -------------------------------------------------------------------------- */
+/*                              Export                                        */
+/* -------------------------------------------------------------------------- */
 
 export const notificationService = {
   listMine,

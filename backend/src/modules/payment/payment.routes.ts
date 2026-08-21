@@ -11,7 +11,6 @@ import {
   verifyPaymentSchema,
   rejectPaymentSchema,
   updatePaymentSettingsSchema,
-  verifyRazorpayPaymentSchema,
 } from '@/modules/payment/payment.validation';
 
 const router = Router();
@@ -73,24 +72,6 @@ router.post(
   uploadPaymentProof, // handles multipart/form-data, saves file
   validate(appointmentIdParamSchema), // validates params after multer
   paymentController.submitPayment,
-);
-
-// POST /api/payments/appointment/:appointmentId/razorpay/create-order — create Razorpay online order
-router.post(
-  '/appointment/:appointmentId/razorpay/create-order',
-  authenticate,
-  authorize(Role.patient),
-  validate(appointmentIdParamSchema),
-  paymentController.createRazorpayOrder,
-);
-
-// POST /api/payments/appointment/:appointmentId/razorpay/verify — verify Razorpay payment signature
-router.post(
-  '/appointment/:appointmentId/razorpay/verify',
-  authenticate,
-  authorize(Role.patient),
-  validate(verifyRazorpayPaymentSchema),
-  paymentController.verifyRazorpayPayment,
 );
 
 export default router;

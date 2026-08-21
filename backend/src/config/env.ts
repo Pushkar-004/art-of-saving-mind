@@ -37,9 +37,10 @@ export const env = {
   SMTP_PORT: parseInt(optional('SMTP_PORT', '587'), 10),
   SMTP_USER: optional('SMTP_USER', ''),
   SMTP_PASS: optional('SMTP_PASS', ''),
+  SMTP_API_KEY: optional('SMTP_API_KEY', ''),
   SMTP_FROM: optional('SMTP_FROM', 'no-reply@artofsavingmind.com'),
 
-  BCRYPT_SALT_ROUNDS: parseInt(optional('BCRYPT_SALT_ROUNDS', '10'), 10),
+  BCRYPT_SALT_ROUNDS: parseInt(optional('BCRYPT_SALT_ROUNDS', '12'), 10),
 
   // =========================================
   // AI WELLNESS ASSISTANT (Phase 4.2)
@@ -50,12 +51,6 @@ export const env = {
   // without a key.
   OPENAI_API_KEY: optional('OPENAI_API_KEY', ''),
   OPENAI_MODEL: optional('OPENAI_MODEL', 'gpt-4o-mini'),
-
-  // =========================================
-  // RAZORPAY PAYMENT GATEWAY
-  // =========================================
-  RAZORPAY_KEY_ID: optional('RAZORPAY_KEY_ID', ''),
-  RAZORPAY_KEY_SECRET: optional('RAZORPAY_KEY_SECRET', ''),
 
   get isProduction() {
     return this.NODE_ENV === 'production';

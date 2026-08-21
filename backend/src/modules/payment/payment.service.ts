@@ -1,16 +1,17 @@
-import Razorpay from 'razorpay';
-import crypto from 'crypto';
 import { Payment, PaymentStatus, User } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import { AppError } from '@/utils/AppError';
 import { env } from '@/config/env';
-import { PaymentDTO, PaymentSettingsDTO, RazorpayOrderDTO } from '@/modules/payment/payment.types';
+import { PaymentDTO, PaymentSettingsDTO, PaymentWithPriceDTO } from '@/modules/payment/payment.types';
 import {
   SubmitPaymentInput,
   UpdatePaymentSettingsInput,
-  VerifyRazorpayPaymentInput,
 } from '@/modules/payment/payment.validation';
 import { notificationService } from '@/modules/notification/notification.service';
+import {
+  getAppointmentPriceInPaise,
+  getSessionDurationMinutes,
+} from '@/lib/servicePricing';
 
 type PaymentWithVerifier = Payment & { verifiedBy: User | null };
 
@@ -29,7 +30,7 @@ function toPaymentDTO(record: PaymentWithVerifier): PaymentDTO {
   };
 }
 
-// ─── Patient ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Patient â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 /**
  * Fetch or auto-create the pending payment row for an appointment.
@@ -38,7 +39,7 @@ function toPaymentDTO(record: PaymentWithVerifier): PaymentDTO {
 async function getOrCreateForPatient(
   appointmentId: string,
   patientUserId: string,
-): Promise<PaymentDTO> {
+): Promise<PaymentWithPriceDTO> {
   // Verify the appointment belongs to this patient
   const appointment = await prisma.appointment.findUnique({
     where: { id: appointmentId },
@@ -53,14 +54,26 @@ async function getOrCreateForPatient(
     where: { appointmentId },
     include: { verifiedBy: true },
   });
-  if (existing) return toPaymentDTO(existing);
 
-  // Auto-create pending payment row
-  const created = await prisma.payment.create({
+  const paymentRecord = existing ?? await prisma.payment.create({
     data: { appointmentId },
     include: { verifiedBy: true },
   });
-  return toPaymentDTO(created);
+
+  const durationMinutes = getSessionDurationMinutes(
+    appointment.startTime,
+    appointment.endTime,
+  );
+  const amountInPaise = getAppointmentPriceInPaise(
+    appointment.service,
+    appointment.mode,
+    durationMinutes,
+  );
+
+  return {
+    ...toPaymentDTO(paymentRecord),
+    amountInPaise,
+  };
 }
 
 async function submitPayment(
@@ -77,25 +90,49 @@ async function submitPayment(
   if (appointment.patient?.userId !== patientUserId) {
     throw AppError.forbidden('Not your appointment');
   }
+  if (appointment.status === 'cancelled') {
+    throw AppError.badRequest('This appointment was cancelled and no payment can be submitted.');
+  }
 
   // Upsert so re-submissions update an existing pending row
-  const record = await prisma.payment.upsert({
-    where: { appointmentId },
-    create: {
-      appointmentId,
-      screenshotUrl: input.screenshotUrl,
-      transactionReference: input.transactionReference ?? null,
-      status: PaymentStatus.pending,
-    },
-    update: {
-      screenshotUrl: input.screenshotUrl,
-      transactionReference: input.transactionReference ?? null,
-      status: PaymentStatus.pending,
-      remarks: null,
-      verifiedById: null,
-      verifiedAt: null,
-    },
-    include: { verifiedBy: true },
+  const record = await prisma.$transaction(async (tx) => {
+    const existing = await tx.payment.findUnique({
+      where: { appointmentId },
+      include: { verifiedBy: true },
+    });
+
+    if (existing?.status === PaymentStatus.verified) {
+      throw AppError.conflict('Payment already verified for this appointment');
+    }
+
+    if (input.transactionReference) {
+      const usedByAnother = await tx.payment.findFirst({
+        where: { transactionReference: input.transactionReference },
+        include: { verifiedBy: true },
+      });
+      if (usedByAnother && usedByAnother.appointmentId !== appointmentId) {
+        throw AppError.conflict('This transaction reference has already been used for another appointment.');
+      }
+    }
+
+    return tx.payment.upsert({
+      where: { appointmentId },
+      create: {
+        appointmentId,
+        screenshotUrl: input.screenshotUrl,
+        transactionReference: input.transactionReference ?? null,
+        status: PaymentStatus.pending,
+      },
+      update: {
+        screenshotUrl: input.screenshotUrl,
+        transactionReference: input.transactionReference ?? null,
+        status: PaymentStatus.pending,
+        remarks: null,
+        verifiedById: null,
+        verifiedAt: null,
+      },
+      include: { verifiedBy: true },
+    });
   });
 
   // Notify admins a payment screenshot was uploaded
@@ -108,7 +145,7 @@ async function submitPayment(
   return toPaymentDTO(record);
 }
 
-// ─── Admin ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Admin â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function listAll(): Promise<(PaymentDTO & { patientName: string; service: string; date: string })[]> {
   const records = await prisma.payment.findMany({
@@ -134,7 +171,7 @@ async function listAll(): Promise<(PaymentDTO & { patientName: string; service: 
   }));
 }
 
-const THERAPIST_NAME = 'Miss Pooja';
+const THERAPIST_NAME = 'Miss. Pooja Sunil Ghadge';
 
 function formatDateLabel(date: Date): string {
   return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -152,44 +189,66 @@ async function verifyPayment(
   adminUserId: string,
   remarks?: string,
 ): Promise<PaymentDTO> {
-  const existing = await prisma.payment.findUnique({
-    where: { id: paymentId },
-    include: {
-      verifiedBy: true,
-      appointment: {
-        include: { patient: { include: { user: true } } },
+  const updatedPayment = await prisma.$transaction(async (tx) => {
+    const existing = await tx.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        verifiedBy: true,
+        appointment: {
+          include: { patient: { include: { user: true } } },
+        },
       },
-    },
-  });
-  if (!existing) throw AppError.notFound('Payment not found');
-  if (existing.status === PaymentStatus.verified) {
-    throw AppError.conflict('Payment already verified');
-  }
-
-  const updated = await prisma.payment.update({
-    where: { id: paymentId },
-    data: {
-      status: PaymentStatus.verified,
-      verifiedById: adminUserId,
-      verifiedAt: new Date(),
-      remarks: remarks ?? null,
-    },
-    include: { verifiedBy: true },
-  });
-
-  const patientUser = existing.appointment.patient?.user;
-  if (patientUser) {
-    void notificationService.notifyPaymentVerified({
-      appointmentId: existing.appointmentId,
-      recipientUserId: patientUser.id,
-      therapistName: THERAPIST_NAME,
-      service: existing.appointment.service,
-      date: formatDateLabel(existing.appointment.date),
-      time: formatTime(existing.appointment.startTime),
     });
-  }
+    if (!existing) throw AppError.notFound('Payment not found');
+    if (existing.status === PaymentStatus.verified) {
+      throw AppError.conflict('Payment already verified');
+    }
 
-  return toPaymentDTO(updated);
+    const updated = await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: PaymentStatus.verified,
+        verifiedById: adminUserId,
+        verifiedAt: new Date(),
+        remarks: remarks ?? null,
+      },
+      include: { verifiedBy: true },
+    });
+
+    if (existing.appointment.status === 'pending') {
+      await tx.appointment.update({
+        where: { id: existing.appointmentId },
+        data: { status: 'upcoming' },
+      });
+    }
+
+    const patientUser = existing.appointment.patient?.user;
+    if (patientUser) {
+      void notificationService.notifyPaymentVerified({
+        appointmentId: existing.appointmentId,
+        recipientUserId: patientUser.id,
+        therapistName: THERAPIST_NAME,
+        service: existing.appointment.service,
+        date: formatDateLabel(existing.appointment.date),
+        time: formatTime(existing.appointment.startTime),
+      });
+    } else {
+      void notificationService.notifyPaymentVerified({
+        appointmentId: existing.appointmentId,
+        recipientUserId: '',
+        therapistName: THERAPIST_NAME,
+        service: existing.appointment.service,
+        date: formatDateLabel(existing.appointment.date),
+        time: formatTime(existing.appointment.startTime),
+        guestEmail: existing.appointment.guestEmail,
+        guestPhone: existing.appointment.guestPhone,
+      });
+    }
+
+    return updated;
+  });
+
+  return toPaymentDTO(updatedPayment);
 }
 
 async function rejectPayment(
@@ -197,46 +256,59 @@ async function rejectPayment(
   adminUserId: string,
   remarks: string,
 ): Promise<PaymentDTO> {
-  const existing = await prisma.payment.findUnique({
-    where: { id: paymentId },
-    include: {
-      verifiedBy: true,
-      appointment: {
-        include: { patient: { include: { user: true } } },
+  const rejectedPayment = await prisma.$transaction(async (tx) => {
+    const existing = await tx.payment.findUnique({
+      where: { id: paymentId },
+      include: {
+        appointment: {
+          include: { patient: { include: { user: true } } },
+        },
       },
-    },
-  });
-  if (!existing) throw AppError.notFound('Payment not found');
-  if (existing.status === PaymentStatus.verified) {
-    throw AppError.conflict('Cannot reject a verified payment');
-  }
-
-  const updated = await prisma.payment.update({
-    where: { id: paymentId },
-    data: {
-      status: PaymentStatus.rejected,
-      verifiedById: adminUserId,
-      verifiedAt: new Date(),
-      remarks,
-    },
-    include: { verifiedBy: true },
-  });
-
-  const patientUser = existing.appointment.patient?.user;
-  if (patientUser) {
-    void notificationService.notifyPaymentRejected({
-      appointmentId: existing.appointmentId,
-      recipientUserId: patientUser.id,
-      therapistName: THERAPIST_NAME,
-      service: existing.appointment.service,
-      remarks,
     });
-  }
+    if (!existing) throw AppError.notFound('Payment not found');
+    if (existing.status === PaymentStatus.verified) {
+      throw AppError.conflict('Cannot reject a verified payment');
+    }
 
-  return toPaymentDTO(updated);
+    const updated = await tx.payment.update({
+      where: { id: paymentId },
+      data: {
+        status: PaymentStatus.rejected,
+        verifiedById: adminUserId,
+        verifiedAt: new Date(),
+        remarks,
+      },
+      include: { verifiedBy: true },
+    });
+
+    const patientUser = existing.appointment.patient?.user;
+    if (patientUser) {
+      void notificationService.notifyPaymentRejected({
+        appointmentId: existing.appointmentId,
+        recipientUserId: patientUser.id,
+        therapistName: THERAPIST_NAME,
+        service: existing.appointment.service,
+        remarks,
+      });
+    } else {
+      void notificationService.notifyPaymentRejected({
+        appointmentId: existing.appointmentId,
+        recipientUserId: '',
+        therapistName: THERAPIST_NAME,
+        service: existing.appointment.service,
+        remarks,
+        guestEmail: existing.appointment.guestEmail,
+        guestPhone: existing.appointment.guestPhone,
+      });
+    }
+
+    return updated;
+  });
+
+  return toPaymentDTO(rejectedPayment);
 }
 
-// ─── Payment Settings ─────────────────────────────────────────────────────────
+// â”€â”€â”€ Payment Settings â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function getSettings(): Promise<PaymentSettingsDTO> {
   let settings = await prisma.paymentSettings.findUnique({ where: { id: 'default' } });
@@ -287,141 +359,10 @@ async function updateSettings(input: UpdatePaymentSettingsInput): Promise<Paymen
   };
 }
 
-async function createRazorpayOrder(
-  appointmentId: string,
-  patientUserId: string,
-): Promise<RazorpayOrderDTO> {
-  const appointment = await prisma.appointment.findUnique({
-    where: { id: appointmentId },
-    include: { patient: { include: { user: true } } },
-  });
-  if (!appointment) throw AppError.notFound('Appointment not found');
-  if (appointment.patient?.userId !== patientUserId) {
-    throw AppError.forbidden('Not your appointment');
-  }
-
-  const settings = await getSettings();
-  const amount = 2000; // ₹2000 default session fee
-  const amountInPaise = amount * 100;
-
-  // If Razorpay keys are not configured and we are in development, return a Sandbox mode mock order for testing
-  if (!env.RAZORPAY_KEY_ID || !env.RAZORPAY_KEY_SECRET) {
-    if (env.isProduction) {
-      throw AppError.badRequest('Razorpay payment gateway is not configured on the server. Please contact support or use manual UPI payment.');
-    }
-    console.log('[Razorpay Dev Sandbox] API keys not found in .env, returning simulated test order.');
-    return {
-      orderId: `order_mock_${Date.now()}`,
-      amount: amountInPaise,
-      currency: 'INR',
-      keyId: 'rzp_test_mock_sandbox',
-      clinicName: settings.clinicName,
-      description: `${appointment.service} Session Payment (Sandbox Mode)`,
-      prefill: {
-        name: appointment.patient?.user.name ?? appointment.guestName ?? '',
-        email: appointment.patient?.user.email ?? appointment.guestEmail ?? '',
-        phone: appointment.patient?.user.phone ?? appointment.guestPhone ?? '',
-      },
-    };
-  }
-
-  const existing = await prisma.payment.findUnique({ where: { appointmentId } });
-  if (existing?.status === PaymentStatus.verified) {
-    throw AppError.conflict('Payment for this appointment is already verified');
-  }
-
-  const razorpay = new Razorpay({
-    key_id: env.RAZORPAY_KEY_ID,
-    key_secret: env.RAZORPAY_KEY_SECRET,
-  });
-
-  const order = await razorpay.orders.create({
-    amount: amountInPaise,
-    currency: 'INR',
-    receipt: appointmentId.slice(0, 40),
-  });
-
-  return {
-    orderId: order.id,
-    amount: amountInPaise,
-    currency: 'INR',
-    keyId: env.RAZORPAY_KEY_ID,
-    clinicName: settings.clinicName,
-    description: `${appointment.service} Session Payment`,
-    prefill: {
-      name: appointment.patient?.user.name ?? appointment.guestName ?? '',
-      email: appointment.patient?.user.email ?? appointment.guestEmail ?? '',
-      phone: appointment.patient?.user.phone ?? appointment.guestPhone ?? '',
-    },
-  };
-}
-
-async function verifyRazorpayPayment(
-  appointmentId: string,
-  patientUserId: string,
-  input: VerifyRazorpayPaymentInput,
-): Promise<PaymentDTO> {
-  const appointment = await prisma.appointment.findUnique({
-    where: { id: appointmentId },
-    include: { patient: { include: { user: true } } },
-  });
-  if (!appointment) throw AppError.notFound('Appointment not found');
-  if (appointment.patient?.userId !== patientUserId) {
-    throw AppError.forbidden('Not your appointment');
-  }
-
-  // Handle Sandbox mode mock verification in development when keys aren't set
-  const isMockOrder = input.razorpay_order_id.startsWith('order_mock_') || input.razorpay_signature === 'mock_signature_sandbox_mode';
-  if (!env.isProduction && (!env.RAZORPAY_KEY_SECRET || isMockOrder)) {
-    console.log('[Razorpay Dev Sandbox] Verifying mock order payment:', input.razorpay_payment_id);
-  } else {
-    if (!env.RAZORPAY_KEY_SECRET) {
-      throw AppError.badRequest('Razorpay secret is not configured on the server.');
-    }
-
-    const expectedSignature = crypto
-      .createHmac('sha256', env.RAZORPAY_KEY_SECRET)
-      .update(`${input.razorpay_order_id}|${input.razorpay_payment_id}`)
-      .digest('hex');
-
-    if (expectedSignature !== input.razorpay_signature) {
-      throw AppError.badRequest('Invalid Razorpay payment signature. Payment verification failed.');
-    }
-  }
-
-  const record = await prisma.payment.upsert({
-    where: { appointmentId },
-    create: {
-      appointmentId,
-      status: PaymentStatus.verified,
-      transactionReference: input.razorpay_payment_id,
-      remarks: 'Verified automatically via Razorpay online payment',
-      verifiedAt: new Date(),
-    },
-    update: {
-      status: PaymentStatus.verified,
-      transactionReference: input.razorpay_payment_id,
-      remarks: 'Verified automatically via Razorpay online payment',
-      verifiedAt: new Date(),
-    },
-    include: { verifiedBy: true },
-  });
-
-  const patientUser = appointment.patient?.user;
-  if (patientUser) {
-    void notificationService.notifyPaymentVerified({
-      appointmentId,
-      recipientUserId: patientUser.id,
-      therapistName: THERAPIST_NAME,
-      service: appointment.service,
-      date: formatDateLabel(appointment.date),
-      time: formatTime(appointment.startTime),
-    });
-  }
-
-  return toPaymentDTO(record);
-}
-
+/*
+ * Online gateway functions formerly followed here. Manual payment-proof
+ * collection and admin verification remain the supported payment flow.
+ */
 export const paymentService = {
   getOrCreateForPatient,
   submitPayment,
@@ -430,6 +371,4 @@ export const paymentService = {
   rejectPayment,
   getSettings,
   updateSettings,
-  createRazorpayOrder,
-  verifyRazorpayPayment,
 };

@@ -22,16 +22,20 @@ import mySessionNotesRoutes from '@/modules/session-note/my-session-notes.routes
 import dashboardRoutes from '@/modules/dashboard/dashboard.routes';
 import reportRoutes from '@/modules/report/report.routes';
 import paymentRoutes from '@/modules/payment/payment.routes';
+import psychologistRoutes from '@/modules/psychologist/psychologist.routes';
 import { startReminderScheduler } from '@/lib/reminderScheduler';
+import { availabilityService } from '@/modules/availability/availability.service';
 
 export function createApp(): Application {
   const app = express();
 
   app.use(helmet());
- app.use(cors({
-  origin: 'https://art-of-saving-mind.vercel.app',
-  credentials: true,
-}));
+app.use(
+    cors({
+      origin: env.CORS_ORIGIN,
+      credentials: true,
+    }),
+  );
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
@@ -50,6 +54,11 @@ export function createApp(): Application {
   if (!env.isProduction) {
     app.use(morgan('dev'));
   }
+
+  // Ensure a default weekly schedule exists for a fresh database before the
+  // booking flow is used. This prevents the "no slots available" state when
+  // availability has never been configured by the admin.
+  void availabilityService.ensureDefaultAvailabilitySeed();
 
   // Start the appointment reminder cron scheduler
   startReminderScheduler();
@@ -74,6 +83,7 @@ export function createApp(): Application {
   app.use('/api/dashboard', dashboardRoutes);
   app.use('/api/reports', reportRoutes);
   app.use('/api/payments', paymentRoutes);
+  app.use('/api/psychologists', psychologistRoutes);
 
   // Catch-all for unknown routes.
   app.use((req: Request, _res: Response, next) => {

@@ -1,8 +1,8 @@
 import { Request, Response, NextFunction } from 'express';
+import { prisma } from '@/lib/prisma';
 import { paymentService } from '@/modules/payment/payment.service';
 import { sendSuccess } from '@/utils/apiResponse';
 import { AppError } from '@/utils/AppError';
-import { env } from '@/config/env';
 
 // ─── Patient ─────────────────────────────────────────────────────────────────
 
@@ -36,31 +36,6 @@ async function submitPayment(req: Request, res: Response, next: NextFunction) {
       },
     );
     sendSuccess(res, { payment }, 'Payment submitted successfully');
-  } catch (err) {
-    next(err);
-  }
-}
-
-async function createRazorpayOrder(req: Request, res: Response, next: NextFunction) {
-  try {
-    const order = await paymentService.createRazorpayOrder(
-      req.params.appointmentId,
-      req.user!.id,
-    );
-    sendSuccess(res, { order }, 'Razorpay order created');
-  } catch (err) {
-    next(err);
-  }
-}
-
-async function verifyRazorpayPayment(req: Request, res: Response, next: NextFunction) {
-  try {
-    const payment = await paymentService.verifyRazorpayPayment(
-      req.params.appointmentId,
-      req.user!.id,
-      req.body,
-    );
-    sendSuccess(res, { payment }, 'Razorpay payment verified successfully');
   } catch (err) {
     next(err);
   }
@@ -131,6 +106,4 @@ export const paymentController = {
   rejectPayment,
   getSettings,
   updateSettings,
-  createRazorpayOrder,
-  verifyRazorpayPayment,
 };

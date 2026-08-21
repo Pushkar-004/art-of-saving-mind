@@ -2,146 +2,111 @@
 
 import { motion } from 'framer-motion'
 import Link from 'next/link'
-import { FileText, BookOpen, Download, ArrowRight, Filter } from 'lucide-react'
+import Image from 'next/image'
+import {
+  Download,
+  ArrowRight,
+  Filter,
+  Search,
+  Library,
+  PlayCircle,
+  Clock,
+} from 'lucide-react'
 import GlassCard from '@/components/shared/GlassCard'
 import Footer from '@/components/layout/Footer'
-import { useState } from 'react'
+import EmptyState from '@/components/shared/EmptyState'
+import { SkeletonRows } from '@/components/shared/Skeleton'
+import ErrorState from '@/components/shared/ErrorState'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useT } from '@/lib/i18n/useT'
+import { getResources, type Resource, type ResourceCategory } from '@/lib/api/client'
+import {
+  RESOURCE_CATEGORIES,
+  CATEGORY_TRANSLATION_KEYS,
+  CATEGORY_ICONS,
+  CATEGORY_BADGE_COLOR,
+  isPdfCategory,
+  matchesResourceSearch,
+} from '@/lib/resources/categories'
+import { getResourceThumbnailUrl } from '@/lib/resources/thumbnail'
+import {
+  WELLNESS_VIDEOS,
+  VIDEO_CATEGORIES,
+  VIDEO_CATEGORY_BADGE_COLOR,
+  matchesVideoSearch,
+  youtubeThumbnail,
+  youtubeWatchUrl,
+  type VideoCategory,
+} from '@/lib/resources/videos'
 
-// Static resource mock data – content values (titles, excerpts, dates, readTime)
-// are intentionally untranslated: they are content/API data, not UI chrome.
-const resources = [
-  {
-    id: 1,
-    title: 'Understanding Anxiety: A Comprehensive Guide',
-    type: 'guide',
-    category: 'Anxiety',
-    excerpt: 'Learn the root causes of anxiety and evidence-based strategies to manage it effectively.',
-    date: 'March 15, 2024',
-    readTime: '8 min read',
-  },
-  {
-    id: 2,
-    title: 'Stress Management Worksheet',
-    type: 'worksheet',
-    category: 'Stress',
-    excerpt: 'Interactive worksheet to identify stressors and develop coping strategies.',
-    date: 'March 10, 2024',
-    readTime: 'Printable',
-  },
-  {
-    id: 3,
-    title: 'Building Healthy Relationships',
-    type: 'article',
-    category: 'Relationships',
-    excerpt: 'Explore the foundations of healthy relationships and improve communication.',
-    date: 'March 8, 2024',
-    readTime: '10 min read',
-  },
-  {
-    id: 4,
-    title: 'Career Transitions: A Step-by-Step Guide',
-    type: 'guide',
-    category: 'Career',
-    excerpt: 'Navigate career changes with confidence and clarity.',
-    date: 'March 1, 2024',
-    readTime: '12 min read',
-  },
-  {
-    id: 5,
-    title: 'Mindfulness and Meditation Practices',
-    type: 'guide',
-    category: 'Wellness',
-    excerpt: 'Beginner-friendly mindfulness exercises for daily practice.',
-    date: 'February 28, 2024',
-    readTime: '6 min read',
-  },
-  {
-    id: 6,
-    title: 'Self-Esteem Building Worksheet',
-    type: 'worksheet',
-    category: 'Personal Growth',
-    excerpt: 'Practical exercises to boost confidence and self-worth.',
-    date: 'February 25, 2024',
-    readTime: 'Printable',
-  },
-  {
-    id: 7,
-    title: 'Sleep and Mental Health Connection',
-    type: 'article',
-    category: 'Wellness',
-    excerpt: 'Understand how sleep impacts mental health and learn better sleep habits.',
-    date: 'February 20, 2024',
-    readTime: '7 min read',
-  },
-  {
-    id: 8,
-    title: 'Emotional Regulation Techniques',
-    type: 'guide',
-    category: 'Mental Health',
-    excerpt: 'Master techniques to manage emotions and respond thoughtfully.',
-    date: 'February 18, 2024',
-    readTime: '9 min read',
-  },
-]
+// Resources are fetched from the shared backend library (GET /api/resources)
+// so the public site always reflects whatever the Admin has published from
+// Dashboard -> Resources. Do NOT reintroduce static/mock data here.
+// The backend already excludes unpublished (draft) resources from this
+// endpoint, so everything returned here is safe to render publicly.
 
-// Internal category keys – used for filter logic (must match resource.category values)
-const CATEGORY_KEYS = [
-  { key: 'All', translationKey: 'resources.catAll' },
-  { key: 'Anxiety', translationKey: 'resources.catAnxiety' },
-  { key: 'Stress', translationKey: 'resources.catStress' },
-  { key: 'Relationships', translationKey: 'resources.catRelationships' },
-  { key: 'Career', translationKey: 'resources.catCareer' },
-  { key: 'Wellness', translationKey: 'resources.catWellness' },
-  { key: 'Mental Health', translationKey: 'resources.catMentalHealth' },
-  { key: 'Personal Growth', translationKey: 'resources.catPersonalGrowth' },
-] as const
-
-const getTypeIcon = (type: string) => {
-  switch (type) {
-    case 'article':
-      return FileText
-    case 'guide':
-      return BookOpen
-    default:
-      return Download
-  }
-}
-
-const getTypeBadgeColor = (type: string) => {
-  switch (type) {
-    case 'article':
-      return 'bg-secondary dark:bg-secondary/40 text-foreground'
-    case 'guide':
-      return 'bg-primary/10 dark:bg-primary/20 text-foreground'
-    case 'worksheet':
-      return 'bg-accent/10 dark:bg-accent/20 text-foreground'
-    default:
-      return 'bg-muted dark:bg-muted/40 text-foreground'
-  }
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  })
 }
 
 export default function ResourcesPage() {
   const { t } = useT()
-  const [selectedCategory, setSelectedCategory] = useState('All')
+  const [activeTab, setActiveTab] = useState<'resources' | 'videos'>('resources')
+  const [selectedCategory, setSelectedCategory] = useState<ResourceCategory | 'All'>('All')
+  const [selectedVideoCategory, setSelectedVideoCategory] = useState<VideoCategory | 'All'>('All')
+  const [query, setQuery] = useState('')
 
-  const filteredResources =
-    selectedCategory === 'All'
-      ? resources
-      : resources.filter((r) => r.category === selectedCategory)
+  const [resources, setResources] = useState<Resource[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [isError, setIsError] = useState(false)
 
-  const getTypeLabel = (type: string) => {
-    switch (type) {
-      case 'article':
-        return t('resources.typeArticle')
-      case 'guide':
-        return t('resources.typeGuide')
-      case 'worksheet':
-        return t('resources.typeWorksheet')
-      default:
-        return type
+  const load = useCallback(async () => {
+    setIsLoading(true)
+    setIsError(false)
+    try {
+      const res = await getResources()
+      setResources(res.data.resources)
+    } catch {
+      setIsError(true)
+    } finally {
+      setIsLoading(false)
     }
-  }
+  }, [])
+
+  useEffect(() => {
+    load()
+  }, [load])
+
+  const filteredResources = useMemo(
+    () =>
+      resources.filter((r) => {
+        const matchesCategory = selectedCategory === 'All' || r.category === selectedCategory
+        const categoryLabel = t(CATEGORY_TRANSLATION_KEYS[r.category])
+        return matchesCategory && matchesResourceSearch(r, query, categoryLabel)
+      }),
+    [resources, selectedCategory, query, t],
+  )
+
+  // Distinguish "nothing in the library at all" from "nothing matches
+  // the current category/search" so each gets the right empty-state copy.
+  const hasAnyResources = resources.length > 0
+  const hasNoMatches = filteredResources.length === 0
+
+  // Videos tab: hardcoded today (see lib/resources/videos.ts), filtered
+  // client-side the same way resources are. Swapping this for an API
+  // later only means changing the import above, not this logic.
+  const filteredVideos = useMemo(
+    () =>
+      WELLNESS_VIDEOS.filter((v) => {
+        const matchesCategory = selectedVideoCategory === 'All' || v.category === selectedVideoCategory
+        return matchesCategory && matchesVideoSearch(v, query)
+      }),
+    [selectedVideoCategory, query],
+  )
 
   return (
     <main className="min-h-screen bg-background">
@@ -170,6 +135,32 @@ export default function ResourcesPage() {
       {/* Resources Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
+          {/* Resources / Videos Tabs */}
+          <div className="flex justify-center mb-10">
+            <div className="inline-flex rounded-full bg-muted p-1">
+              <button
+                onClick={() => setActiveTab('resources')}
+                className={`px-6 py-2 rounded-full font-medium transition-all ${
+                  activeTab === 'resources'
+                    ? 'bg-primary text-white shadow-lg'
+                    : 'text-foreground hover:bg-muted/80'
+                }`}
+              >
+                {t('resources.tabResources')}
+              </button>
+              <button
+                onClick={() => setActiveTab('videos')}
+                className={`px-6 py-2 rounded-full font-medium transition-all ${
+                  activeTab === 'videos'
+                    ? 'bg-primary text-white shadow-lg'
+                    : 'text-foreground hover:bg-muted/80'
+                }`}
+              >
+                {t('resources.tabVideos')}
+              </button>
+            </div>
+          </div>
+
           {/* Category Filter */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -178,77 +169,233 @@ export default function ResourcesPage() {
             viewport={{ once: true }}
             className="mb-12"
           >
+            <div className="relative mb-6 max-w-md">
+              <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('resources.searchPlaceholder')}
+                className="w-full rounded-lg border border-border bg-background py-2.5 pl-10 pr-4 text-foreground placeholder-muted-foreground transition-all focus:border-transparent focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
             <div className="flex items-center gap-2 mb-4">
               <Filter size={20} className="text-primary" />
               <h2 className="font-semibold text-foreground">{t('resources.filterByCategory')}</h2>
             </div>
-            <div className="flex flex-wrap gap-3">
-              {CATEGORY_KEYS.map(({ key, translationKey }) => (
+            {activeTab === 'resources' ? (
+              <div className="flex flex-wrap gap-3">
                 <button
-                  key={key}
-                  onClick={() => setSelectedCategory(key)}
+                  onClick={() => setSelectedCategory('All')}
                   className={`px-4 py-2 rounded-full font-medium transition-all ${
-                    selectedCategory === key
+                    selectedCategory === 'All'
                       ? 'bg-primary text-white shadow-lg'
                       : 'bg-muted text-foreground hover:bg-muted/80'
                   }`}
                 >
-                  {t(translationKey)}
+                  {t('resources.catAll')}
                 </button>
-              ))}
-            </div>
+                {RESOURCE_CATEGORIES.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedCategory(category)}
+                    className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      selectedCategory === category
+                        ? 'bg-primary text-white shadow-lg'
+                        : 'bg-muted text-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {t(CATEGORY_TRANSLATION_KEYS[category])}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={() => setSelectedVideoCategory('All')}
+                  className={`px-4 py-2 rounded-full font-medium transition-all ${
+                    selectedVideoCategory === 'All'
+                      ? 'bg-primary text-white shadow-lg'
+                      : 'bg-muted text-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  {t('resources.videoCatAll')}
+                </button>
+                {VIDEO_CATEGORIES.map((category) => (
+                  <button
+                    key={category}
+                    onClick={() => setSelectedVideoCategory(category)}
+                    className={`px-4 py-2 rounded-full font-medium transition-all ${
+                      selectedVideoCategory === category
+                        ? 'bg-primary text-white shadow-lg'
+                        : 'bg-muted text-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {category}
+                  </button>
+                ))}
+              </div>
+            )}
           </motion.div>
 
           {/* Resources Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredResources.map((resource, index) => {
-              const Icon = getTypeIcon(resource.type)
-              return (
+          {activeTab === 'resources' ? isLoading ? (
+            <SkeletonRows rows={4} />
+          ) : isError ? (
+            <ErrorState onRetry={load} description={t('resources.errorDescription')} />
+          ) : !hasAnyResources ? (
+            <EmptyState
+              icon={Library}
+              title={t('emptyStates.noResourcesFoundTitle')}
+              description={t('emptyStates.noResourcesFoundDescription')}
+            />
+          ) : hasNoMatches ? (
+            <EmptyState
+              icon={Library}
+              title={t('emptyStates.noResourcesFoundTitle')}
+              description={t('emptyStates.noResourcesInCategory')}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredResources.map((resource, index) => {
+                const Icon = CATEGORY_ICONS[resource.category]
+                const isPdf = isPdfCategory(resource.category)
+                return (
+                  <motion.div
+                    key={resource.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, delay: index * 0.05 }}
+                    viewport={{ once: true }}
+                  >
+                  <GlassCard className="flex flex-col h-full hover:shadow-xl">
+                      {getResourceThumbnailUrl(resource.thumbnailUrl) && (
+                        <div className="relative -mx-6 -mt-6 mb-4 h-36 w-[calc(100%+3rem)] overflow-hidden rounded-t-2xl bg-muted">
+                          <Image
+                            src={getResourceThumbnailUrl(resource.thumbnailUrl)!}
+                            alt=""
+                            fill
+                            unoptimized
+                            className="object-cover"
+                          />
+                        </div>
+                      )}
+
+                      <div className="flex items-start justify-between mb-3 gap-2">
+                        <div className={`p-2 rounded-lg ${CATEGORY_BADGE_COLOR[resource.category]}`}>
+                          <Icon size={20} />
+                        </div>
+                        <div className="flex flex-wrap justify-end gap-1.5">
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-secondary text-foreground">
+                            {t(CATEGORY_TRANSLATION_KEYS[resource.category])}
+                          </span>
+                          <span className="text-xs font-medium px-2 py-1 rounded-full bg-muted text-muted-foreground">
+                            {isPdf ? t('resources.categoryPdf') : t('resources.categoryGuide')}
+                          </span>
+                        </div>
+                      </div>
+
+                      <h3 className="text-lg font-semibold text-foreground mb-2 leading-tight">
+                        {resource.title}
+                      </h3>
+                      <p className="text-sm text-muted-foreground mb-4 flex-1">
+                        {resource.description || resource.fileName}
+                      </p>
+
+                      <div className="border-t border-border/50 pt-4">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
+                          <span>{formatDate(resource.createdAt)}</span>
+                          <span className="truncate max-w-[45%]">{resource.fileName}</span>
+                        </div>
+
+                        {/* Opens the file in a new tab. Browsers that can preview
+                            the file type (e.g. PDF) render it inline; otherwise
+                            the browser falls back to downloading it automatically —
+                            no extra download logic needed on our side. */}
+                        <a
+                          href={resource.fileUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center text-primary font-medium hover:text-primary/80 transition-colors gap-1"
+                        >
+                          {isPdf ? t('resources.openPdf') : t('resources.readMore')}
+                          {isPdf ? <Download size={14} /> : <ArrowRight size={14} />}
+                        </a>
+                      </div>
+                    </GlassCard>
+                  </motion.div>
+                )
+              })}
+            </div>
+          ) : filteredVideos.length === 0 ? (
+            <EmptyState
+              icon={PlayCircle}
+              title={t('emptyStates.noResourcesFoundTitle')}
+              description={t('emptyStates.noResourcesInCategory')}
+            />
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredVideos.map((video, index) => (
                 <motion.div
-                  key={resource.id}
+                  key={video.id}
                   initial={{ opacity: 0, y: 20 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, delay: index * 0.05 }}
                   viewport={{ once: true }}
                 >
                   <GlassCard className="flex flex-col h-full hover:shadow-xl">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className={`p-2 rounded-lg ${getTypeBadgeColor(resource.type)}`}>
-                        <Icon size={20} />
+                    <a
+                      href={youtubeWatchUrl(video.youtubeId)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="relative -mx-6 -mt-6 mb-4 block h-36 w-[calc(100%+3rem)] overflow-hidden rounded-t-2xl bg-muted"
+                    >
+                      <Image
+                        src={youtubeThumbnail(video.youtubeId)}
+                        alt=""
+                        fill
+                        unoptimized
+                        className="object-cover"
+                      />
+                    </a>
+
+                    <div className="flex items-start justify-between mb-3 gap-2">
+                      <div className={`p-2 rounded-lg ${VIDEO_CATEGORY_BADGE_COLOR[video.category]}`}>
+                        <PlayCircle size={20} />
                       </div>
-                      <span className="text-xs font-medium px-2 py-1 rounded-full bg-secondary text-foreground">
-                        {getTypeLabel(resource.type)}
-                      </span>
+                      <div className="flex flex-wrap justify-end gap-1.5">
+                        <span className="text-xs font-medium px-2 py-1 rounded-full bg-secondary text-foreground">
+                          {video.category}
+                        </span>
+                      </div>
                     </div>
 
-                    <h3 className="text-lg font-semibold text-foreground mb-2 leading-tight">{resource.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-4 flex-1">{resource.excerpt}</p>
+                    <h3 className="text-lg font-semibold text-foreground mb-2 leading-tight">
+                      {video.title}
+                    </h3>
+                    <p className="text-sm text-muted-foreground mb-4 flex-1">{video.description}</p>
 
                     <div className="border-t border-border/50 pt-4">
                       <div className="flex items-center justify-between text-xs text-muted-foreground mb-4">
-                        <span>{resource.date}</span>
-                        <span>{resource.readTime}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Clock size={12} />
+                          {video.duration}
+                        </span>
+                        <span className="truncate max-w-[45%]">{video.channel}</span>
                       </div>
 
-                      <Link
-                        href={`/resources/${resource.id}`}
+                      <a
+                        href={youtubeWatchUrl(video.youtubeId)}
+                        target="_blank"
+                        rel="noreferrer"
                         className="inline-flex items-center text-primary font-medium hover:text-primary/80 transition-colors gap-1"
                       >
-                        {t('resources.readMore')}
-                        <ArrowRight size={14} />
-                      </Link>
+                        {t('resources.watchOnYoutube')}
+                        <PlayCircle size={14} />
+                      </a>
                     </div>
                   </GlassCard>
                 </motion.div>
-              )
-            })}
-          </div>
-
-          {filteredResources.length === 0 && (
-            <div className="text-center py-12">
-              <p className="text-muted-foreground text-lg">
-                {t('emptyStates.noResourcesInCategory')}
-              </p>
+              ))}
             </div>
           )}
         </div>

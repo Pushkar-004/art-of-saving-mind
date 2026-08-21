@@ -60,22 +60,27 @@ export default function Footer() {
             <ul className="space-y-3">
               <li>
                 <Link href="/services" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  {t('footer.anxietyCounseling')}
+                  {t('footer.counsellingTherapy')}
                 </Link>
               </li>
               <li>
                 <Link href="/services" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  {t('footer.relationshipTherapy')}
-                </Link>
-              </li>
-              <li>
-                <Link href="/services" className="text-sm text-muted-foreground hover:text-primary transition-colors">
-                  {t('footer.stressManagement')}
+                  {t('footer.childCounselling')}
                 </Link>
               </li>
               <li>
                 <Link href="/services" className="text-sm text-muted-foreground hover:text-primary transition-colors">
                   {t('footer.careerGuidance')}
+                </Link>
+              </li>
+              <li>
+                <Link href="/services" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  {t('footer.maritalCounselling')}
+                </Link>
+              </li>
+              <li>
+                <Link href="/services" className="text-sm text-muted-foreground hover:text-primary transition-colors">
+                  {t('footer.relationshipCounselling')}
                 </Link>
               </li>
             </ul>
@@ -87,7 +92,7 @@ export default function Footer() {
             <ul className="space-y-3">
               <li>
                 <a
-                  href="mailto:pooja@artofSavingmind.com"
+                  href="mailto:poojaghadge77@gmail.com"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   <Mail size={16} />
@@ -96,18 +101,16 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="https://wa.me/919876543210"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="tel:8766804788"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                   <Phone size={16} />
-                  {t('footer.whatsapp')}
+                  8766804788
                 </a>
               </li>
               <li>
                 <a
-                  href="https://instagram.com"
+                  href="https://instagram.com/artof_savingmind"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"

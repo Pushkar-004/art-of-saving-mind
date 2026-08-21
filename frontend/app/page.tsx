@@ -1,8 +1,9 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import Image from 'next/image'
 import Link from 'next/link'
-import { Heart, Brain, Users, Briefcase, Baby, TrendingUp, Star, ArrowRight } from 'lucide-react'
+import { Heart, Brain, Users, Briefcase, Baby, Star, ArrowRight } from 'lucide-react'
 import GlassCard from '@/components/shared/GlassCard'
 import Footer from '@/components/layout/Footer'
 import { useT } from '@/lib/i18n/useT'
@@ -36,21 +37,15 @@ export default function Home() {
   const services = [
     {
       icon: Brain,
-      title: t('home.serviceAnxietyTitle'),
-      description: t('home.serviceAnxietyDesc'),
+      title: t('home.serviceCounsellingTitle'),
+      description: t('home.serviceCounsellingDesc'),
       color: 'from-emerald-400 to-teal-500',
     },
     {
-      icon: TrendingUp,
-      title: t('home.serviceStressTitle'),
-      description: t('home.serviceStressDesc'),
-      color: 'from-blue-400 to-cyan-500',
-    },
-    {
-      icon: Heart,
-      title: t('home.serviceRelationshipTitle'),
-      description: t('home.serviceRelationshipDesc'),
-      color: 'from-rose-400 to-pink-500',
+      icon: Baby,
+      title: t('home.serviceChildTitle'),
+      description: t('home.serviceChildDesc'),
+      color: 'from-sky-400 to-blue-500',
     },
     {
       icon: Briefcase,
@@ -59,21 +54,21 @@ export default function Home() {
       color: 'from-amber-400 to-orange-500',
     },
     {
-      icon: Users,
-      title: t('home.serviceIndividualTitle'),
-      description: t('home.serviceIndividualDesc'),
-      color: 'from-violet-400 to-purple-500',
+      icon: Heart,
+      title: t('home.serviceMaritalTitle'),
+      description: t('home.serviceMaritalDesc'),
+      color: 'from-rose-400 to-pink-500',
     },
     {
-      icon: Baby,
-      title: t('home.serviceChildTitle'),
-      description: t('home.serviceChildDesc'),
-      color: 'from-sky-400 to-blue-500',
+      icon: Users,
+      title: t('home.serviceRelationshipTitle'),
+      description: t('home.serviceRelationshipDesc'),
+      color: 'from-violet-400 to-purple-500',
     },
   ]
 
   const testimonialTexts = [
-    'Miss Pooja helped me overcome anxiety in just a few sessions. Her approach is warm and non-judgmental.',
+    'Miss. Pooja Sunil Ghadge helped me overcome anxiety in just a few sessions. Her approach is warm and non-judgmental.',
     'The best therapy experience I\'ve had. Professional, compassionate, and truly transformative.',
     'Highly recommend for anyone looking for genuine therapy support.',
   ]
@@ -81,8 +76,8 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-background">
       {/* Hero Section */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden pt-20 pb-32">
-        {/* Animated Background Blobs */}
+      <section className="relative min-h-[90vh] flex items-center overflow-hidden pt-20 pb-32">
+        {/* Animated Background Blobs (both modes) */}
         <div className="absolute inset-0 overflow-hidden">
           <motion.div
             className="absolute -top-40 -left-40 w-80 h-80 bg-primary/20 rounded-full blur-3xl"
@@ -102,65 +97,136 @@ export default function Home() {
           />
         </div>
 
-        {/* Content */}
-        <motion.div
-          className="relative max-w-4xl px-4 sm:px-6 lg:px-8 text-center space-y-8"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
+        {/* Premium meditation visual — Light Mode only, tablet & desktop (right half) */}
+        <div
+          className="absolute inset-y-0 right-0 z-0 hidden w-[42%] md:block lg:w-1/2 dark:hidden pointer-events-none select-none"
+          aria-hidden="true"
         >
+          <div className="relative h-full w-full">
+            <Image
+              src="/hero-meditation.webp"
+              alt=""
+              fill
+              priority
+              sizes="(min-width: 1024px) 50vw, (min-width: 768px) 42vw, 0px"
+              className="object-cover object-top"
+              style={{
+                opacity: 0.82,
+                WebkitMaskImage:
+                  'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.55) 20%, black 42%, black 100%)',
+                maskImage:
+                  'linear-gradient(to right, transparent 0%, rgba(0,0,0,0.55) 20%, black 42%, black 100%)',
+              }}
+            />
+            {/* Warm sage/cream tint so the photo matches the palette */}
+            <div
+              className="absolute inset-0 mix-blend-soft-light"
+              style={{
+                background:
+                  'linear-gradient(150deg, color-mix(in oklab, var(--secondary) 40%, transparent) 0%, color-mix(in oklab, var(--accent) 25%, transparent) 55%, transparent 100%)',
+              }}
+            />
+            {/* Left-to-right fade into the hero background (no hard edge) */}
+            <div
+              className="absolute inset-0"
+              style={{ background: 'linear-gradient(to right, var(--background) 0%, transparent 38%)' }}
+            />
+            {/* Soft bottom fade so the image settles into the section */}
+            <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-background/90 to-transparent" />
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div
-            className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-primary/10 border border-primary/30"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.6 }}
-          >
-            <Heart size={16} className="text-primary mr-2" />
-            <span className="text-sm font-medium text-primary">{t('home.heroBadge')}</span>
-          </motion.div>
-
-          <motion.h1
-            className="wellness-heading leading-tight"
+            className="flex flex-col items-center space-y-8 text-center md:items-start md:text-left md:w-[52%] lg:w-[48%] dark:md:items-center dark:md:text-center dark:md:w-full dark:md:max-w-4xl dark:md:mx-auto"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1 }}
+            transition={{ duration: 0.8 }}
           >
-            {t('home.heroHeading')}{' '}
-            <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-              {t('home.heroHeadingHighlight')}
-            </span>
-          </motion.h1>
-
-          <motion.p
-            className="wellness-subheading max-w-2xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            {t('home.heroSubheading')}
-          </motion.p>
-
-          <motion.div
-            className="flex flex-col sm:flex-row items-center justify-center gap-4"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.3 }}
-          >
-            <Link
-              href="/appointment-booking"
-              className="glass-button inline-flex items-center gap-2"
+            <motion.div
+              className="inline-flex items-center justify-center px-4 py-2 rounded-full bg-primary/10 border border-primary/30"
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.6 }}
             >
-              {t('buttons.bookYourSession')}
-              <ArrowRight size={18} />
-            </Link>
-            <Link
-              href="/about"
-              className="glass-button-outline"
+              <Heart size={16} className="text-primary mr-2" />
+              <span className="text-sm font-medium text-primary">{t('home.heroBadge')}</span>
+            </motion.div>
+
+            <motion.h1
+              className="wellness-heading leading-tight"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.1 }}
             >
-              {t('common.learnMore')}
-            </Link>
+              {t('home.heroHeading')}{' '}
+              <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                {t('home.heroHeadingHighlight')}
+              </span>
+            </motion.h1>
+
+            <motion.p
+              className="wellness-subheading max-w-2xl mx-auto md:mx-0 dark:md:mx-auto"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2 }}
+            >
+              {t('home.heroSubheading')}
+            </motion.p>
+
+            <motion.div
+              className="flex flex-col sm:flex-row items-center justify-center gap-4 md:justify-start dark:md:justify-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.3 }}
+            >
+              <Link
+                href="/appointment-booking"
+                className="glass-button inline-flex items-center gap-2"
+              >
+                {t('buttons.bookYourSession')}
+                <ArrowRight size={18} />
+              </Link>
+              <Link
+                href="/about"
+                className="glass-button-outline"
+              >
+                {t('common.learnMore')}
+              </Link>
+            </motion.div>
+
+            {/* Mobile-only meditation visual — Light Mode only, subtle faded card below the CTAs */}
+            <motion.div
+              className="w-full pt-2 md:hidden dark:hidden"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.35 }}
+              aria-hidden="true"
+            >
+              <div className="relative mx-auto h-64 w-full max-w-xs overflow-hidden rounded-3xl">
+                <Image
+                  src="/hero-meditation.webp"
+                  alt=""
+                  fill
+                  sizes="(max-width: 767px) 90vw, 320px"
+                  className="object-cover object-top opacity-90"
+                />
+                <div
+                  className="absolute inset-0 mix-blend-soft-light"
+                  style={{
+                    background:
+                      'linear-gradient(150deg, color-mix(in oklab, var(--secondary) 35%, transparent) 0%, color-mix(in oklab, var(--accent) 20%, transparent) 60%, transparent 100%)',
+                  }}
+                />
+                <div
+                  className="absolute inset-0"
+                  style={{ background: 'linear-gradient(to top, var(--background) 0%, transparent 45%)' }}
+                />
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
+        </div>
       </section>
 
       {/* Services Section */}

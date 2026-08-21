@@ -2,47 +2,29 @@
 
 import { useEffect, useMemo, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import {
-  Download,
-  Search,
-  FileText,
-  BookOpen,
-  Wind,
-  Activity,
-  ClipboardList,
-  Library,
-} from 'lucide-react'
+import Image from 'next/image'
+import { Download, Search, Library } from 'lucide-react'
 import GlassCard from '@/components/shared/GlassCard'
 import EmptyState from '@/components/shared/EmptyState'
 import { SkeletonRows } from '@/components/shared/Skeleton'
 import ErrorState from '@/components/shared/ErrorState'
 import { getResources, type Resource, type ResourceCategory } from '@/lib/api/client'
 import { useT } from '@/lib/i18n/useT'
+import {
+  RESOURCE_CATEGORIES,
+  CATEGORY_TRANSLATION_KEYS,
+  CATEGORY_ICONS,
+  isPdfCategory,
+  matchesResourceSearch,
+} from '@/lib/resources/categories'
+import { getResourceThumbnailUrl } from '@/lib/resources/thumbnail'
 
-// Fixed internal values used for API filtering — never translated
-const CATEGORY_VALUES: ResourceCategory[] = [
-  'worksheet',
-  'meditation',
-  'exercise',
-  'guide',
-  'pdf',
-]
-
-const CATEGORY_ICONS: Record<ResourceCategory, typeof FileText> = {
-  worksheet: ClipboardList,
-  meditation: Wind,
-  exercise: Activity,
-  guide: BookOpen,
-  pdf: FileText,
-}
-
-// Maps each category value to its translation key in the resources section
-const CATEGORY_TRANSLATION_KEYS: Record<ResourceCategory, string> = {
-  worksheet: 'resources.categoryWorksheet',
-  meditation: 'resources.categoryMeditation',
-  exercise: 'resources.categoryExercise',
-  guide: 'resources.categoryGuide',
-  pdf: 'resources.categoryPdf',
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 export default function ResourcesPage() {
@@ -73,16 +55,15 @@ export default function ResourcesPage() {
   }, [load])
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
     return resources.filter((r) => {
-      const matchesQuery =
-        !q ||
-        r.title.toLowerCase().includes(q) ||
-        (r.description ?? '').toLowerCase().includes(q)
+      const categoryLabel = t(CATEGORY_TRANSLATION_KEYS[r.category])
+      const matchesQuery = matchesResourceSearch(r, query, categoryLabel)
       const matchesCategory = categoryFilter === 'all' || r.category === categoryFilter
       return matchesQuery && matchesCategory
     })
-  }, [resources, query, categoryFilter])
+  }, [resources, query, categoryFilter, t])
+
+  const hasAnyResources = resources.length > 0
 
   if (isError) {
     return <ErrorState onRetry={load} description={t('resources.errorDescription')} />
@@ -107,7 +88,7 @@ export default function ResourcesPage() {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          {(['all', ...CATEGORY_VALUES] as const).map((c) => (
+          {(['all', ...RESOURCE_CATEGORIES] as const).map((c) => (
             <button
               key={c}
               onClick={() => setCategoryFilter(c)}
@@ -125,32 +106,56 @@ export default function ResourcesPage() {
 
       {isLoading ? (
         <SkeletonRows rows={4} />
-      ) : filtered.length === 0 ? (
+      ) : !hasAnyResources ? (
         <EmptyState
           icon={Library}
           title={t('emptyStates.noResourcesFoundTitle')}
           description={t('emptyStates.noResourcesFoundDescription')}
         />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Library}
+          title={t('emptyStates.noResourcesFoundTitle')}
+          description={t('emptyStates.noResourcesInCategory')}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((resource) => {
             const Icon = CATEGORY_ICONS[resource.category]
+            const isPdf = isPdfCategory(resource.category)
+            const thumbnailUrl = getResourceThumbnailUrl(resource.thumbnailUrl)
             return (
               <motion.div key={resource.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
                 <GlassCard className="flex items-start justify-between">
                   <div className="flex items-start gap-4 flex-1 min-w-0">
-                    <div className="p-3 rounded-lg bg-primary/10 shrink-0">
-                      <Icon size={20} className="text-primary" />
-                    </div>
+                    {thumbnailUrl ? (
+                      <div className="relative h-11 w-11 shrink-0 overflow-hidden rounded-lg bg-muted">
+                        <Image src={thumbnailUrl} alt="" fill unoptimized className="object-cover" />
+                      </div>
+                    ) : (
+                      <div className="p-3 rounded-lg bg-primary/10 shrink-0">
+                        <Icon size={20} className="text-primary" />
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-foreground truncate">{resource.title}</h3>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <h3 className="font-semibold text-foreground truncate">{resource.title}</h3>
+                        <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-foreground">
+                          {t(CATEGORY_TRANSLATION_KEYS[resource.category])}
+                        </span>
+                        {isPdf && (
+                          <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
+                            {t('resources.categoryPdf')}
+                          </span>
+                        )}
+                      </div>
                       {resource.description && (
                         <p className="text-sm text-muted-foreground mt-1 line-clamp-2 text-pretty">
                           {resource.description}
                         </p>
                       )}
                       <p className="text-xs text-muted-foreground mt-1.5">
-                        {t(CATEGORY_TRANSLATION_KEYS[resource.category])} · {resource.fileName}
+                        {formatDate(resource.createdAt)} · {resource.fileName}
                       </p>
                     </div>
                   </div>
@@ -158,7 +163,7 @@ export default function ResourcesPage() {
                     href={resource.fileUrl}
                     target="_blank"
                     rel="noreferrer"
-                    aria-label={`${t('resources.openResource')} ${resource.title}`}
+                    aria-label={`${isPdf ? t('resources.openPdf') : t('resources.openResource')} ${resource.title}`}
                     className="p-2 hover:bg-primary/10 rounded-lg transition-colors shrink-0"
                   >
                     <Download size={18} className="text-primary" />

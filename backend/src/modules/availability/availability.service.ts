@@ -24,6 +24,33 @@ const DAY_ORDER: { value: DayOfWeek; day: string; short: string }[] = [
   { value: 'sunday', day: 'Sunday', short: 'Sun' },
 ];
 
+const DEFAULT_TIME_RANGES = [
+  { startTime: '09:00', endTime: '10:00' },
+  { startTime: '10:30', endTime: '11:30' },
+  { startTime: '12:00', endTime: '13:00' },
+  { startTime: '14:00', endTime: '15:00' },
+  { startTime: '15:30', endTime: '16:30' },
+  { startTime: '17:00', endTime: '18:00' },
+  { startTime: '18:30', endTime: '19:30' },
+  { startTime: '20:00', endTime: '21:00' },
+] as const;
+
+async function ensureDefaultAvailabilitySeed(): Promise<void> {
+  const count = await prisma.availabilitySlot.count();
+  if (count > 0) return;
+
+  const rows = (Object.values(DayOfWeek) as DayOfWeek[]).flatMap((day) =>
+    DEFAULT_TIME_RANGES.map((range) => ({
+      dayOfWeek: day,
+      startTime: range.startTime,
+      endTime: range.endTime,
+      isEnabled: true,
+    })),
+  );
+
+  await prisma.availabilitySlot.createMany({ data: rows });
+}
+
 function toTimeSlotDTO(slot: AvailabilitySlot): TimeSlotDTO {
   return {
     id: slot.id,
@@ -254,6 +281,7 @@ async function isSlotBookable(date: Date, startTime: string): Promise<boolean> {
 }
 
 export const availabilityService = {
+  ensureDefaultAvailabilitySeed,
   getWeeklyAvailability,
   replaceWeeklyAvailability,
   listBlockedDates,

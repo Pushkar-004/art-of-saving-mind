@@ -3,18 +3,36 @@ import { ResourceCategory } from '@prisma/client';
 
 const categoryEnum = z.nativeEnum(ResourceCategory);
 
+// Shared by fileUrl (required) and thumbnailUrl (optional) — both are
+// external links, not uploaded binaries, so we only validate they're a
+// well-formed absolute URL rather than accepting arbitrary strings.
+const urlSchema = z
+  .string()
+  .trim()
+  .max(2048, 'URL is too long')
+  .refine(
+    (value) => {
+      try {
+        // eslint-disable-next-line no-new
+        new URL(value);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: 'Must be a valid URL' },
+  );
+
 // POST /api/resources (admin)
 export const createResourceSchema = z.object({
   body: z.object({
     title: z.string().trim().min(1, 'Title is required').max(200),
     description: z.string().trim().max(2000).optional(),
     category: categoryEnum,
-    fileUrl: z
-      .string()
-      .trim()
-      .min(1, 'File URL is required')
-      .max(2048, 'File URL is too long'),
+    fileUrl: urlSchema.refine((v) => v.length > 0, 'File URL is required'),
     fileName: z.string().trim().min(1, 'File name is required').max(255),
+    thumbnailUrl: urlSchema.optional().or(z.literal('')),
+    isPublished: z.boolean().optional(),
   }),
 });
 
@@ -27,8 +45,10 @@ export const updateResourceSchema = z.object({
       title: z.string().trim().min(1).max(200).optional(),
       description: z.string().trim().max(2000).optional(),
       category: categoryEnum.optional(),
-      fileUrl: z.string().trim().min(1).max(2048).optional(),
+      fileUrl: urlSchema.optional(),
       fileName: z.string().trim().min(1).max(255).optional(),
+      thumbnailUrl: urlSchema.optional().or(z.literal('')),
+      isPublished: z.boolean().optional(),
     })
     .refine((data) => Object.keys(data).length > 0, {
       message: 'At least one field must be provided',

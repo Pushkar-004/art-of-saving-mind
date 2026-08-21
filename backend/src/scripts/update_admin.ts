@@ -1,35 +1,78 @@
+// // 
+// import { prisma } from '../lib/prisma';
+// import { Role } from '@prisma/client';
+// import bcrypt from 'bcryptjs';
+
+
+// async function updateAdmin() {
+
+//   const email = 'admin@ppm.com';
+//   const password = 'Admin@123';
+
+//   const hash = await bcrypt.hash(password, 10);
+
+//   const admin = await prisma.user.upsert({
+
+//     where: {
+//       email,
+//     },
+
+//     update: {
+//       name: 'PPM Admin',
+//       role: Role.admin,
+//       passwordHash: hash,
+//     },
+
+//     create: {
+//       email,
+//       name: 'PPM Admin',
+//       role: Role.admin,
+//       passwordHash: hash,
+//     },
+
+//   });
+
+//   console.log(`Admin ready: ${admin.email} / ${password}`);
+
+//   await prisma.$disconnect();
+// }
+
+// updateAdmin().catch(console.error);
+
 import { prisma } from '../lib/prisma';
+import { Role } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
 async function updateAdmin() {
-  const admin = await prisma.user.findFirst({
-    where: { role: 'admin' }
+
+  const email = 'admin@ppm.com';
+  const password = 'Admin@123';
+
+  const hash = await bcrypt.hash(password, 10);
+
+  const admin = await prisma.user.upsert({
+
+    where: {
+      email,
+    },
+
+    update: {
+      name: 'PPM Admin',
+      role: Role.admin,
+      passwordHash: hash,
+    },
+
+    create: {
+      email,
+      name: 'PPM Admin',
+      role: Role.admin,
+      passwordHash: hash,
+    },
+
   });
 
-  const hash = await bcrypt.hash('Ajay@004', 10);
+  console.log(`Admin ready: ${admin.email} / ${password}`);
 
-  if (!admin) {
-    console.log("No admin found. Creating one...");
-    await prisma.user.create({
-      data: {
-        email: 'itachi7631@gmail.com',
-        name: 'Admin',
-        role: 'admin',
-        passwordHash: hash
-      }
-    });
-    console.log("Admin created.");
-  } else {
-    console.log("Admin found. Updating...");
-    await prisma.user.update({
-      where: { id: admin.id },
-      data: {
-        email: 'itachi7631@gmail.com',
-        passwordHash: hash
-      }
-    });
-    console.log("Admin updated.");
-  }
   await prisma.$disconnect();
 }
 

@@ -42,7 +42,7 @@ export const currentPatient: Patient = {
   totalSessions: 12,
   lastSession: '2024-03-15',
   nextSession: '2024-03-22T14:00',
-  primaryConcern: 'Anxiety & Stress Management',
+  primaryConcern: 'Counselling & Therapy',
   medicalHistory: {
     conditions: ['Generalized Anxiety', 'Insomnia'],
     medications: ['Sertraline 50mg'],

@@ -23,8 +23,11 @@ export default function LoginPage() {
     try {
       const user = await login(email, password)
       toast.success(t('toast.loginSuccessful'))
-      window.location.href =
-        user.role === 'admin' ? '/dashboard/admin' : '/dashboard/patient'
+      window.location.href = user.role === 'admin'
+        ? '/dashboard/admin'
+        : user.role === 'psychologist'
+          ? '/dashboard/psychologist'
+          : '/dashboard/patient'
     } catch (error) {
       const msg = error instanceof Error ? error.message : t('toast.loginFailed')
       toast.error(msg)

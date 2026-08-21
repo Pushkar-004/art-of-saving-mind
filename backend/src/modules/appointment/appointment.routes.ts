@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import { Role } from '@prisma/client';
 import { appointmentController } from '@/modules/appointment/appointment.controller';
-import { authenticate, optionalAuthenticate } from '@/middleware/authenticate';
+import { authenticate } from '@/middleware/authenticate';
 import { authorize } from '@/middleware/authorize';
 import { validate } from '@/middleware/validate';
 import {
   appointmentIdParamSchema,
+  assignAppointmentSchema,
   bookAppointmentSchema,
   cancelAppointmentSchema,
   listAppointmentsQuerySchema,
@@ -20,7 +21,8 @@ const router = Router();
 // patientId automatically without requiring auth for guests.
 router.post(
   '/book',
-  optionalAuthenticate,
+  authenticate,
+  authorize(Role.patient),
   validate(bookAppointmentSchema),
   appointmentController.book,
 );
@@ -48,6 +50,8 @@ router.post(
 
 // ---------------- Admin-side ----------------
 
+router.get('/psychologist/dashboard', authenticate, authorize(Role.psychologist), appointmentController.myPsychologistDashboard);
+
 // GET /api/appointments/admin?status=pending
 router.get(
   '/admin',
@@ -58,6 +62,16 @@ router.get(
 );
 
 // POST /api/appointments/admin/:id/confirm
+router.post(
+  '/admin/:id/assign',
+  authenticate,
+  authorize(Role.admin),
+  validate(assignAppointmentSchema),
+  appointmentController.assignForAdmin,
+);
+
+router.post('/admin/:id/handle-myself', authenticate, authorize(Role.admin), validate(appointmentIdParamSchema), appointmentController.handleMyselfForAdmin);
+
 router.post(
   '/admin/:id/confirm',
   authenticate,

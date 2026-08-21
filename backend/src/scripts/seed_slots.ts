@@ -60,7 +60,7 @@ async function seedSlots() {
         passwordHash: hash,
         patient: {
           create: {
-            primaryConcern: 'Anxiety & Stress Management',
+            primaryConcern: 'Counselling & Therapy',
           },
         },
       },
@@ -84,7 +84,7 @@ async function seedSlots() {
       const appt = await prisma.appointment.create({
         data: {
           patientId: patient.id,
-          service: 'Individual Counseling',
+          service: 'Counselling & Therapy',
           date: new Date(dateStr),
           startTime: '15:30',
           endTime: '16:30',
@@ -93,7 +93,7 @@ async function seedSlots() {
           notes: 'Test appointment created for checking out payment flows.',
         },
       });
-      console.log(`Created test appointment ID: ${appt.id} (Service: Individual Counseling, Date: ${dateStr}, Time: 15:30 - 16:30)`);
+      console.log(`Created test appointment ID: ${appt.id} (Service: Counselling & Therapy, Date: ${dateStr}, Time: 15:30 - 16:30)`);
     } else {
       console.log(`Test appointment already exists: ${existingAppt.id}`);
     }

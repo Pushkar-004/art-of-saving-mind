@@ -80,6 +80,11 @@ export const appointmentIdParamSchema = z.object({
   params: z.object({ id: z.string().uuid('Invalid appointment id') }),
 });
 
+export const assignAppointmentSchema = z.object({
+  params: z.object({ id: z.string().uuid('Invalid appointment id') }),
+  body: z.object({ psychologistId: z.string().uuid('Invalid psychologist id') }),
+});
+
 // GET /api/appointments/admin?status=pending — optional status filter.
 export const listAppointmentsQuerySchema = z.object({
   query: z.object({

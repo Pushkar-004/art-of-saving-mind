@@ -1,7 +1,17 @@
 'use client'
 
 import { motion } from 'framer-motion'
-import { Mail, Phone, Share2, Clock, MapPin } from 'lucide-react'
+import {
+  Mail,
+  Phone,
+  Share2,
+  MapPin,
+  HeartHandshake,
+  PhoneCall,
+  ShieldCheck,
+  HandHeart,
+  UserCheck,
+} from 'lucide-react'
 import GlassCard from '@/components/shared/GlassCard'
 import Footer from '@/components/layout/Footer'
 import { useState } from 'react'
@@ -68,7 +78,7 @@ export default function ContactPage() {
 
       {/* Contact Section */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12">
+        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Contact Form */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -159,10 +169,10 @@ export default function ContactPage() {
                   <div>
                     <h3 className="font-semibold text-foreground">{t('contact.emailContactLabel')}</h3>
                     <a
-                      href="mailto:pooja@artofSavingmind.com"
+                      href="mailto:poojaghadge77@gmail.com"
                       className="text-primary hover:text-primary/80 transition-colors"
                     >
-                      pooja@artofSavingmind.com
+                      poojaghadge77@gmail.com
                     </a>
                   </div>
                 </div>
@@ -172,14 +182,12 @@ export default function ContactPage() {
                     <Phone size={24} className="text-primary" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground">{t('contact.whatsappLabel')}</h3>
+                    <h3 className="font-semibold text-foreground">Phone</h3>
                     <a
-                      href="https://wa.me/919876543210"
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href="tel:8766804788"
                       className="text-primary hover:text-primary/80 transition-colors"
                     >
-                      +91 98765 43210
+                      8766804788
                     </a>
                   </div>
                 </div>
@@ -191,25 +199,13 @@ export default function ContactPage() {
                   <div>
                     <h3 className="font-semibold text-foreground">{t('contact.instagramLabel')}</h3>
                     <a
-                      href="https://instagram.com"
+                      href="https://instagram.com/artof_savingmind"
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-primary hover:text-primary/80 transition-colors"
                     >
-                      @artofsavingmind
+                      @artof_savingmind
                     </a>
-                  </div>
-                </div>
-
-                <div className="flex gap-4">
-                  <div className="p-3 rounded-lg bg-primary/10 h-fit">
-                    <Clock size={24} className="text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">{t('contact.responseTimeLabel')}</h3>
-                    <p className="text-muted-foreground">
-                      {t('contact.responseTimeDesc')}
-                    </p>
                   </div>
                 </div>
 
@@ -232,6 +228,82 @@ export default function ContactPage() {
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {t('contact.confidentialityNoticeDesc')}
               </p>
+            </GlassCard>
+          </motion.div>
+
+          {/* Suicidal Helpline */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            viewport={{ once: true }}
+          >
+            <GlassCard className="h-full flex flex-col">
+              <div className="flex items-start gap-3 mb-4">
+                <div className="p-3 rounded-lg bg-primary/10 h-fit">
+                  <HeartHandshake size={24} className="text-primary" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-foreground">{t('contact.helplineHeading')}</h2>
+                  <p className="text-sm font-medium text-primary">{t('contact.helplineSubtitle')}</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 mb-5">
+                <p className="text-sm text-muted-foreground leading-relaxed">{t('contact.helplineDesc1')}</p>
+                <p className="text-sm text-muted-foreground leading-relaxed">{t('contact.helplineDesc2')}</p>
+              </div>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="h-px flex-1 bg-border" />
+                <span className="text-xs text-muted-foreground">{t('contact.orLabel')}</span>
+                <div className="h-px flex-1 bg-border" />
+              </div>
+
+              {/* National Emergency Helpline */}
+              <div
+                className="rounded-xl border p-4 mb-5"
+                style={{
+                  borderColor: 'color-mix(in oklab, var(--destructive) 30%, transparent)',
+                  background: 'color-mix(in oklab, var(--destructive) 8%, transparent)',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className="p-2.5 rounded-lg h-fit"
+                    style={{ background: 'color-mix(in oklab, var(--destructive) 15%, transparent)' }}
+                  >
+                    <PhoneCall size={20} style={{ color: 'var(--destructive)' }} />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-foreground text-sm">{t('contact.nationalHelplineTitle')}</h3>
+                    <p className="text-2xl font-bold" style={{ color: 'var(--destructive)' }}>
+                      {t('contact.nationalHelplineNumber')}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{t('contact.nationalHelplineDesc')}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Trust indicators */}
+              <div className="mt-auto pt-4 border-t border-border/50 flex flex-wrap gap-x-4 gap-y-2">
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ShieldCheck size={14} className="text-primary" />
+                  {t('contact.badgeFree')}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <ShieldCheck size={14} className="text-primary" />
+                  {t('contact.badgeConfidential')}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <HandHeart size={14} className="text-primary" />
+                  {t('contact.badgeCompassionate')}
+                </span>
+                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <UserCheck size={14} className="text-primary" />
+                  {t('contact.badgeProfessional')}
+                </span>
+              </div>
             </GlassCard>
           </motion.div>
         </div>

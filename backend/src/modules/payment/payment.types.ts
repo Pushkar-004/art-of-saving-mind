@@ -13,24 +13,14 @@ export interface PaymentDTO {
   createdAt: string;
 }
 
+export interface PaymentWithPriceDTO extends PaymentDTO {
+  amountInPaise: number;
+}
+
 export interface PaymentSettingsDTO {
   clinicName: string;
   upiId: string;
   qrImageUrl: string | null;
   paymentInstructions: string | null;
-}
-
-export interface RazorpayOrderDTO {
-  orderId: string;
-  amount: number;
-  currency: string;
-  keyId: string;
-  clinicName: string;
-  description: string;
-  prefill: {
-    name: string;
-    email: string;
-    phone: string;
-  };
 }
 

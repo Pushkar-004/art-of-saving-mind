@@ -13,7 +13,9 @@ import { AppError } from '@/utils/AppError';
 // whole route behind auth.
 async function book(req: Request, res: Response, next: NextFunction) {
   try {
-    const patientId = req.user ? await resolvePatientIdIfAny(req.user.id) : null;
+    if (!req.user) throw AppError.unauthorized('Not authenticated');
+    const patientId = await resolvePatientIdIfAny(req.user.id);
+    if (!patientId) throw AppError.notFound('Patient profile not found');
     const appointment = await appointmentService.book(req.body, patientId);
     sendSuccess(res, { appointment }, 'Appointment booked successfully', 201);
   } catch (err) {
@@ -89,6 +91,29 @@ async function confirmForAdmin(req: Request, res: Response, next: NextFunction) 
   }
 }
 
+async function assignForAdmin(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw AppError.unauthorized('Not authenticated');
+    const appointment = await appointmentService.assignForAdmin(req.params.id, req.body.psychologistId, req.user.id);
+    sendSuccess(res, { appointment }, 'Psychologist assigned successfully');
+  } catch (err) { next(err); }
+}
+
+async function handleMyselfForAdmin(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw AppError.unauthorized('Not authenticated');
+    const appointment = await appointmentService.assignForAdmin(req.params.id, req.user.id, req.user.id);
+    sendSuccess(res, { appointment }, 'Appointment assigned to you successfully');
+  } catch (err) { next(err); }
+}
+
+async function myPsychologistDashboard(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) throw AppError.unauthorized('Not authenticated');
+    sendSuccess(res, { dashboard: await appointmentService.psychologistSummary(req.user.id) });
+  } catch (err) { next(err); }
+}
+
 async function completeForAdmin(req: Request, res: Response, next: NextFunction) {
   try {
     const appointment = await appointmentService.completeForAdmin(req.params.id);
@@ -123,6 +148,9 @@ export const appointmentController = {
   rescheduleMine,
   listAllForAdmin,
   confirmForAdmin,
+  assignForAdmin,
+  handleMyselfForAdmin,
+  myPsychologistDashboard,
   completeForAdmin,
   cancelForAdmin,
   rescheduleForAdmin,

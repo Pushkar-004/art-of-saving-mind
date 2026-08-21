@@ -33,6 +33,10 @@ import {
   type Appointment,
   type AppointmentStatus,
   downloadAppointmentsReport,
+  assignAppointmentAsAdmin,
+  handleAppointmentMyselfAsAdmin,
+  getPsychologists,
+  type Psychologist,
 } from '@/lib/api/client'
 import { useNotifications } from '@/lib/context/NotificationContext'
 
@@ -72,6 +76,10 @@ export default function AdminAppointmentsPage() {
     }
   }
   const [cancelling, setCancelling] = useState(false)
+  const [assignmentTarget, setAssignmentTarget] = useState<Appointment | null>(null)
+  const [psychologists, setPsychologists] = useState<Psychologist[]>([])
+  const [selectedPsychologistId, setSelectedPsychologistId] = useState('')
+  const [assigning, setAssigning] = useState(false)
 
   const [rescheduleTarget, setRescheduleTarget] = useState<Appointment | null>(null)
   const [availableSlots, setAvailableSlots] = useState<{ date: string; start: string; end: string }[]>([])
@@ -113,6 +121,23 @@ export default function AdminAppointmentsPage() {
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to confirm appointment')
     }
+  }
+
+  const openAssignment = async (apt: Appointment) => {
+    setAssignmentTarget(apt); setSelectedPsychologistId(apt.assignedPsychologistId ?? '')
+    try { setPsychologists((await getPsychologists()).data.psychologists.filter((person) => person.isActive)) } catch { toast.error('Could not load the psychologist team') }
+  }
+  const handleAssign = async (psychologistId?: string) => {
+    if (!assignmentTarget || !(psychologistId ?? selectedPsychologistId)) return
+    setAssigning(true)
+    try { await assignAppointmentAsAdmin(assignmentTarget.id, psychologistId ?? selectedPsychologistId); toast.success('Psychologist assigned'); setAssignmentTarget(null); load() }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Could not assign psychologist') } finally { setAssigning(false) }
+  }
+  const handleMyself = async () => {
+    if (!assignmentTarget) return
+    setAssigning(true)
+    try { await handleAppointmentMyselfAsAdmin(assignmentTarget.id); toast.success('Appointment assigned to you'); setAssignmentTarget(null); load() }
+    catch (err) { toast.error(err instanceof Error ? err.message : 'Could not assign appointment') } finally { setAssigning(false) }
   }
 
   const handleComplete = async (apt: Appointment) => {
@@ -274,6 +299,7 @@ export default function AdminAppointmentsPage() {
                         <Calendar size={14} className="text-primary" />
                         {apt.date}
                       </span>
+                      <span className="font-medium text-foreground">{apt.assignedPsychologistName ?? 'Waiting for assignment'}</span>
                       <span className="flex items-center gap-1.5">
                         <Clock size={14} className="text-primary" />
                         {apt.time}
@@ -292,6 +318,9 @@ export default function AdminAppointmentsPage() {
                         {apt.status}
                       </span>
 
+                      {apt.status === 'pending' && (
+                        <button onClick={() => openAssignment(apt)} className="glass-button-outline px-3 py-2 text-sm">{apt.assignedPsychologistId ? 'Reassign' : 'Assign'}</button>
+                      )}
                       {apt.status === 'pending' && (
                         <button
                           onClick={() => handleConfirm(apt)}
@@ -352,6 +381,20 @@ export default function AdminAppointmentsPage() {
       )}
 
       {/* Cancel confirmation */}
+      <Modal
+        open={!!assignmentTarget}
+        onClose={() => setAssignmentTarget(null)}
+        title="Assign psychologist"
+        description={assignmentTarget ? `Choose who will handle ${assignmentTarget.patientName}'s appointment.` : ''}
+        footer={<><button onClick={() => setAssignmentTarget(null)} className="glass-button-outline">Cancel</button><button onClick={() => handleAssign()} disabled={!selectedPsychologistId || assigning} className="glass-button">{assigning ? 'Assigning...' : 'Assign'}</button></>}
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted-foreground">Assign an active team psychologist, or keep this appointment with Pooja Ma&apos;am.</p>
+          <button onClick={handleMyself} disabled={assigning} className="glass-button-outline w-full">Handle Myself</button>
+          <select value={selectedPsychologistId} onChange={(event) => setSelectedPsychologistId(event.target.value)} className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"><option value="">Select psychologist</option>{psychologists.map((person) => <option key={person.id} value={person.id}>{person.name}</option>)}</select>
+        </div>
+      </Modal>
+
       <Modal
         open={!!cancelTarget}
         onClose={() => setCancelTarget(null)}

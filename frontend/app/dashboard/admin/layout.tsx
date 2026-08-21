@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode, useState, useEffect } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -13,6 +14,7 @@ import {
   NotebookPen,
   CreditCard,
   Settings2,
+  Stethoscope,
   LogOut,
   Menu,
   X,
@@ -28,6 +30,7 @@ function getNavItems(t: (key: string) => string) {
     { href: '/dashboard/admin', label: t('sidebar.adminOverview'), icon: LayoutDashboard },
     { href: '/dashboard/admin/appointments', label: t('sidebar.adminAppointments'), icon: CalendarCheck },
     { href: '/dashboard/admin/patients', label: t('sidebar.patients'), icon: Users },
+    { href: '/dashboard/admin/psychologists', label: 'Psychologists', icon: Stethoscope },
     { href: '/dashboard/admin/availability', label: t('sidebar.availability'), icon: Clock },
     { href: '/dashboard/admin/resources', label: t('sidebar.adminResources'), icon: Library },
     { href: '/dashboard/admin/session-notes', label: t('sidebar.adminSessionNotes'), icon: NotebookPen },
@@ -52,11 +55,11 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
     if (!isLoading && !isAuthenticated) {
       router.push('/auth/login')
     } else if (!isLoading && isAuthenticated && user?.role !== 'admin') {
-      router.push('/dashboard/patient')
+      router.push(user?.role === 'psychologist' ? '/dashboard/psychologist' : '/dashboard/patient')
     }
   }, [isLoading, isAuthenticated, user, router])
 
-  const displayName = user?.role === 'admin' ? user.name : 'Miss Pooja Ghadge'
+  const displayName = user?.role === 'admin' ? user.name : 'Miss. Pooja Sunil Ghadge'
   const initials = user?.role === 'admin' ? user.avatarInitials : 'PG'
 
   const handleLogout = async () => {
@@ -142,8 +145,8 @@ export default function AdminDashboardLayout({ children }: { children: ReactNode
             <NotificationBell />
             <ThemeToggle />
             <div className="flex items-center gap-3 pl-4 border-l border-border/50">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm">
-                {initials}
+              <div className="w-10 h-10 rounded-full overflow-hidden relative border border-primary/20 bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white font-bold text-sm">
+                <Image src="/pooja-profile.jpg" alt={displayName} fill className="object-cover object-center" />
               </div>
               <div className="hidden sm:block">
                 <p className="text-sm font-medium text-foreground">{displayName}</p>

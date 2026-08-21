@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion } from 'framer-motion'
-import Image from 'next/image'
 import {
   CheckCircle2,
   XCircle,
@@ -47,6 +46,35 @@ function StatusBadge({ status }: { status: AdminPayment['status'] }) {
   )
 }
 
+function PaymentProofImage({
+  src,
+  alt,
+  className,
+}: {
+  src: string
+  alt: string
+  className: string
+}) {
+  const [failed, setFailed] = useState(false)
+
+  if (failed) {
+    return (
+      <div className={`${className} flex items-center justify-center bg-muted text-muted-foreground`}>
+        <CreditCard size={20} />
+      </div>
+    )
+  }
+
+  return (
+    <img
+      src={src}
+      alt={alt}
+      className={className}
+      onError={() => setFailed(true)}
+    />
+  )
+}
+
 export default function AdminPaymentsPage() {
   const { refreshNotifications } = useNotifications()
   const [payments, setPayments] = useState<AdminPayment[]>([])
@@ -55,6 +83,7 @@ export default function AdminPaymentsPage() {
 
   // Screenshot preview
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewFailed, setPreviewFailed] = useState(false)
 
   // Verify modal
   const [verifyTarget, setVerifyTarget] = useState<AdminPayment | null>(null)
@@ -126,6 +155,11 @@ export default function AdminPaymentsPage() {
     }
   }
 
+  const openPreview = (url: string) => {
+    setPreviewFailed(false)
+    setPreviewUrl(url)
+  }
+
   return (
     <motion.div
       className="space-y-6"
@@ -177,16 +211,13 @@ export default function AdminPaymentsPage() {
                 {/* Screenshot thumbnail */}
                 <div
                   className="shrink-0 w-16 h-16 rounded-xl overflow-hidden border border-border/50 bg-muted cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => payment.screenshotUrl && setPreviewUrl(payment.screenshotUrl)}
+                  onClick={() => payment.screenshotUrl && openPreview(payment.screenshotUrl)}
                 >
                   {payment.screenshotUrl ? (
-                    <Image
+                    <PaymentProofImage
                       src={resolveAssetUrl(payment.screenshotUrl)}
                       alt="Payment screenshot"
-                      width={64}
-                      height={64}
                       className="w-full h-full object-cover"
-                      unoptimized
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
@@ -218,7 +249,7 @@ export default function AdminPaymentsPage() {
                 <div className="shrink-0 flex flex-col gap-2">
                   {payment.screenshotUrl && (
                     <button
-                      onClick={() => setPreviewUrl(payment.screenshotUrl!)}
+                      onClick={() => openPreview(payment.screenshotUrl!)}
                       className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg hover:bg-muted transition-all"
                     >
                       <Eye size={13} />
@@ -253,15 +284,35 @@ export default function AdminPaymentsPage() {
       {/* Screenshot preview modal */}
       <Modal open={!!previewUrl} onClose={() => setPreviewUrl(null)} title="Payment Screenshot">
         {previewUrl && (
-          <div className="flex justify-center">
-            <Image
-              src={resolveAssetUrl(previewUrl)}
-              alt="Payment screenshot"
-              width={500}
-              height={600}
-              className="max-w-full rounded-xl"
-              unoptimized
-            />
+          <div className="space-y-3">
+            <div className="flex justify-center">
+              {previewFailed ? (
+                <div className="flex min-h-72 w-full max-w-lg flex-col items-center justify-center rounded-xl border border-border/60 bg-muted/40 p-6 text-center">
+                  <CreditCard size={28} className="mb-3 text-muted-foreground" />
+                  <p className="text-sm font-medium text-foreground">Screenshot file could not be loaded.</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    The payment record has an image URL, but the backend did not return an image for it.
+                  </p>
+                </div>
+              ) : (
+                <img
+                  src={resolveAssetUrl(previewUrl)}
+                  alt="Payment screenshot"
+                  className="max-h-[70vh] max-w-full rounded-xl object-contain"
+                  onError={() => setPreviewFailed(true)}
+                />
+              )}
+            </div>
+            <div className="flex justify-center">
+              <a
+                href={resolveAssetUrl(previewUrl)}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs font-medium text-primary hover:text-primary/80"
+              >
+                Open image in new tab
+              </a>
+            </div>
           </div>
         )}
       </Modal>

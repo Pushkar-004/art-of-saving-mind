@@ -49,22 +49,9 @@ export const updatePaymentSettingsSchema = z.object({
   }),
 });
 
-export const verifyRazorpayPaymentSchema = z.object({
-  params: z.object({
-    appointmentId: z.string().uuid('Invalid appointment ID'),
-  }),
-  body: z.object({
-    razorpay_order_id: z.string().min(1, 'Razorpay order ID is required'),
-    razorpay_payment_id: z.string().min(1, 'Razorpay payment ID is required'),
-    razorpay_signature: z.string().min(1, 'Razorpay signature is required'),
-  }),
-});
-
 export type SubmitPaymentInput = z.infer<typeof submitPaymentSchema>['body'] & {
   screenshotUrl?: string; // injected by controller after multer upload
 };
 export type VerifyPaymentInput = z.infer<typeof verifyPaymentSchema>['body'];
 export type RejectPaymentInput = z.infer<typeof rejectPaymentSchema>['body'];
 export type UpdatePaymentSettingsInput = z.infer<typeof updatePaymentSettingsSchema>['body'];
-export type VerifyRazorpayPaymentInput = z.infer<typeof verifyRazorpayPaymentSchema>['body'];
-

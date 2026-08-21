@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { Award, Heart, Users, Lightbulb, ArrowRight, CheckCircle } from 'lucide-react'
@@ -11,10 +12,33 @@ export default function AboutPage() {
   const { t } = useT()
 
   const qualifications = [
-    { year: '2020', title: t('about.qual2020Title'), description: t('about.qual2020Desc') },
-    { year: '2018', title: t('about.qual2018Title'), description: t('about.qual2018Desc') },
-    { year: '2021', title: t('about.qual2021Title'), description: t('about.qual2021Desc') },
-    { year: '2022', title: t('about.qual2022Title'), description: t('about.qual2022Desc') },
+    {
+      year: '2017',
+      title: 'B.A. Psychology',
+      description: 'Chh. Shivaji College, Satara — Bachelor’s degree in Psychology.',
+    },
+    {
+      year: '2019',
+      title: 'M.A. Psychology',
+      description: 'Modern College, Shivaji Nagar, Pune — Master’s degree in Psychology.',
+    },
+    {
+      year: 'Clinical Training',
+      title: 'Clinical Psychology Internship – KEM Hospital, Pune',
+      description: 'Clinical exposure to psychological assessment, interventions, and therapeutic practices.',
+    },
+    {
+      year: '6 Years Experience',
+      title: 'Counselling & Therapy Experience',
+      description:
+        'Six years of experience supporting individuals through emotional, psychological, and personal challenges using a compassionate and client-centred approach.',
+    },
+    {
+      year: '3 Years',
+      title: 'Engineering College Student Counselling',
+      description:
+        'Providing counselling and psychological support to engineering college students for academic stress, anxiety, relationships, emotional well-being, self-esteem, career concerns, and adjustment issues.',
+    },
   ]
 
   const values = [
@@ -41,10 +65,14 @@ export default function AboutPage() {
   ]
 
   const specializations = [
-    t('about.specAnxiety'),
-    t('about.specDepression'),
-    t('about.specRelationship'),
-    t('about.specCareer'),
+    'Individual counselling and psychotherapy',
+    'Student and young-adult counselling',
+    'Stress and anxiety management',
+    'Emotional well-being and personal growth',
+    'Relationship and interpersonal concerns',
+    'Self-esteem and confidence',
+    'Academic and adjustment-related concerns',
+    'Coping skills and emotional resilience',
   ]
 
   return (
@@ -80,16 +108,24 @@ export default function AboutPage() {
               whileInView={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.6 }}
               viewport={{ once: true }}
-              className="rounded-2xl overflow-hidden"
+              className="rounded-2xl overflow-hidden shadow-lg border border-border/50 bg-card"
             >
-              <div className="w-full aspect-square bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center rounded-2xl">
-                <div className="text-center space-y-4">
-                  <div className="w-32 h-32 mx-auto rounded-full bg-gradient-to-br from-primary to-accent flex items-center justify-center text-white text-5xl font-bold">
-                    P
-                  </div>
-                  <p className="text-lg font-semibold text-foreground">Miss Pooja Sunil Ghadge</p>
-                  <p className="text-primary font-medium">M.A. Clinical Psychology</p>
-                </div>
+              <div className="relative w-full aspect-square overflow-hidden rounded-t-2xl bg-gradient-to-br from-primary/20 to-accent/20">
+                <Image
+                  src="/pooja-profile.jpg"
+                  alt="Miss. Pooja Sunil Ghadge"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover object-center transition-transform duration-500 hover:scale-105"
+                  priority
+                />
+              </div>
+              <div className="p-6 text-center space-y-1 bg-card">
+                <p className="text-xl font-semibold text-foreground">Miss. Pooja Sunil Ghadge</p>
+                <p className="text-primary font-medium">Clinical Psychologist</p>
+                <p className="text-sm text-muted-foreground">6 years of experience in counselling and therapy</p>
+                <p className="text-sm text-muted-foreground">Clinical Psychology Internship · KEM Hospital, Pune</p>
+                <p className="text-sm text-muted-foreground">3 years of counselling experience with engineering college students</p>
               </div>
             </motion.div>
 
@@ -105,10 +141,16 @@ export default function AboutPage() {
                   {t('about.professionalBackgroundHeading')}
                 </h2>
                 <p className="text-muted-foreground leading-relaxed mb-4">
-                  {t('about.professionalBackgroundP1')}
+                  Miss. Pooja Sunil Ghatge is a Clinical Psychologist with six years' experience providing counselling and therapy for emotional and personal challenges.
                 </p>
                 <p className="text-muted-foreground leading-relaxed">
-                  {t('about.professionalBackgroundP2')}
+                  She creates a safe, empathetic, and non-judgmental space to help individuals build resilience and work towards meaningful personal growth.
+                </p>
+                <p className="text-muted-foreground leading-relaxed">
+                  Trained through a clinical internship at KEM Hospital, Pune, she has also spent three years supporting engineering college students with academic stress and adjustment concerns.
+                </p>
+                <p className="text-muted-foreground leading-relaxed">
+                  Her compassionate, client-centred approach combines professional psychological knowledge with practical strategies tailored to each person&apos;s needs.
                 </p>
               </div>
 

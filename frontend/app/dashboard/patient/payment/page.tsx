@@ -22,25 +22,10 @@ import {
   getPaymentForAppointment,
   getPaymentSettings,
   uploadPaymentProof,
-  createRazorpayOrder,
-  verifyRazorpayPayment,
   type Payment,
   type PaymentSettings,
 } from '@/lib/api/client'
 import { useNotifications } from '@/lib/context/NotificationContext'
-
-function loadRazorpayScript(): Promise<boolean> {
-  return new Promise((resolve) => {
-    if (typeof window !== 'undefined' && (window as unknown as { Razorpay?: unknown }).Razorpay) {
-      return resolve(true)
-    }
-    const script = document.createElement('script')
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js'
-    script.onload = () => resolve(true)
-    script.onerror = () => resolve(false)
-    document.body.appendChild(script)
-  })
-}
 
 const itemVariants = {
   hidden: { opacity: 0, y: 18 },
@@ -78,18 +63,13 @@ export default function PaymentPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
+  const baseAmount = payment ? payment.amountInPaise / 100 : 0
+
   // Upload form state
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadPreview, setUploadPreview] = useState<string | null>(null)
   const [txRef, setTxRef] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [payingOnline, setPayingOnline] = useState(false)
-  const [sandboxOrder, setSandboxOrder] = useState<{
-    orderId: string
-    amount: number
-    clinicName: string
-    description: string
-  } | null>(null)
 
   const load = useCallback(async () => {
     if (!appointmentId) return
@@ -158,77 +138,6 @@ export default function PaymentPage() {
     }
   }
 
-  const handleRazorpayPayment = async () => {
-    if (!appointmentId) return
-    setPayingOnline(true)
-    try {
-      const loaded = await loadRazorpayScript()
-      if (!loaded) {
-        toast.error('Failed to load Razorpay SDK. Please check your network connection.')
-        setPayingOnline(false)
-        return
-      }
-
-      const res = await createRazorpayOrder(appointmentId)
-      const order = res.data.order
-
-      // If server returned Sandbox mode mock order (API keys unset in backend/.env), show interactive Sandbox Simulator
-      if (order.keyId === 'rzp_test_mock_sandbox') {
-        setSandboxOrder({
-          orderId: order.orderId,
-          amount: order.amount,
-          clinicName: order.clinicName,
-          description: order.description,
-        })
-        setPayingOnline(false)
-        return
-      }
-
-      const options = {
-        key: order.keyId,
-        amount: order.amount,
-        currency: order.currency,
-        name: order.clinicName,
-        description: order.description,
-        order_id: order.orderId,
-        prefill: order.prefill,
-        theme: {
-          color: '#3b82f6',
-        },
-        handler: async function (response: {
-          razorpay_order_id: string
-          razorpay_payment_id: string
-          razorpay_signature: string
-        }) {
-          try {
-            const verifyRes = await verifyRazorpayPayment(appointmentId, {
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            })
-            setPayment(verifyRes.data.payment)
-            void refreshNotifications()
-            toast.success('Online payment verified successfully!')
-          } catch (err: unknown) {
-            toast.error(err instanceof Error ? err.message : 'Payment verification failed')
-          }
-        },
-        modal: {
-          ondismiss: function () {
-            setPayingOnline(false)
-          },
-        },
-      }
-
-      const RazorpayConstructor = (window as unknown as { Razorpay: new (options: unknown) => { open: () => void } }).Razorpay
-      const rzp = new RazorpayConstructor(options)
-      rzp.open()
-    } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : 'Could not initiate Razorpay payment')
-      setPayingOnline(false)
-    }
-  }
-
   if (!appointmentId) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -262,72 +171,6 @@ export default function PaymentPage() {
 
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 space-y-6">
-      {/* Razorpay Sandbox Test Simulator Modal */}
-      {sandboxOrder && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-          <div className="bg-background border border-border rounded-2xl max-w-md w-full shadow-2xl overflow-hidden animate-in zoom-in-95">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-5 text-white">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-2.5 py-1 rounded-full">
-                  Razorpay Dev Sandbox
-                </span>
-                <span className="text-sm opacity-90">Test Mode</span>
-              </div>
-              <h3 className="text-xl font-bold mt-2">{sandboxOrder.clinicName}</h3>
-              <p className="text-sm opacity-90">{sandboxOrder.description}</p>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="flex justify-between items-center py-3 border-b border-border">
-                <span className="text-muted-foreground">Amount Payable</span>
-                <span className="text-2xl font-bold text-foreground">
-                  ₹{(sandboxOrder.amount / 100).toLocaleString('en-IN')}
-                </span>
-              </div>
-              <div className="bg-muted/60 rounded-xl p-3 text-xs text-muted-foreground leading-relaxed">
-                <p>
-                  <strong>Note:</strong> Real Razorpay API keys (<code className="bg-muted px-1 py-0.5 rounded">RAZORPAY_KEY_ID</code>) are not set in <code className="bg-muted px-1 py-0.5 rounded">backend/.env</code> right now. This simulator allows you to test the complete online payment verification & notification flow without real keys or money.
-                </p>
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setSandboxOrder(null)}
-                  className="flex-1 py-2.5 rounded-xl border border-border text-foreground font-medium hover:bg-muted transition-colors text-sm"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      setPayingOnline(true)
-                      const mockPaymentId = `pay_mock_${Date.now()}`
-                      const verifyRes = await verifyRazorpayPayment(appointmentId, {
-                        razorpay_order_id: sandboxOrder.orderId,
-                        razorpay_payment_id: mockPaymentId,
-                        razorpay_signature: 'mock_signature_sandbox_mode',
-                      })
-                      setPayment(verifyRes.data.payment)
-                      void refreshNotifications()
-                      toast.success('Online payment verified successfully (Sandbox Mode)!')
-                      setSandboxOrder(null)
-                    } catch (err: unknown) {
-                      toast.error(err instanceof Error ? err.message : 'Verification failed')
-                    } finally {
-                      setPayingOnline(false)
-                    }
-                  }}
-                  disabled={payingOnline}
-                  className="flex-1 py-2.5 rounded-xl bg-blue-600 text-white font-medium hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-lg shadow-blue-600/20 text-sm"
-                >
-                  {payingOnline ? 'Verifying...' : 'Simulate Success Pay'}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Header */}
       <motion.div variants={itemVariants} className="flex items-center gap-3">
         <button
@@ -372,11 +215,27 @@ export default function PaymentPage() {
       {/* Payment details card */}
       <motion.div variants={itemVariants}>
         <GlassCard className="p-6 space-y-5">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              {settings?.clinicName ?? t('nav.brandName')}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-0.5">{t('payment.scanQrOrUseUpi')}</p>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-lg font-semibold text-foreground">
+                {settings?.clinicName ?? t('nav.brandName')}
+              </h2>
+              <p className="text-sm text-muted-foreground mt-0.5">{t('payment.scanQrOrUseUpi')}</p>
+            </div>
+            <div className="rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-right">
+              <div className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground">Total due</div>
+              <div className="text-xl font-bold text-foreground">₹{baseAmount ? baseAmount.toLocaleString('en-IN') : '—'}</div>
+            </div>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-1">
+            <button
+              type="button"
+              onClick={() => router.push('/dashboard/patient/appointments')}
+              className="rounded-xl border border-border bg-background px-4 py-3 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+            >
+              Pay at reception · ₹{baseAmount.toLocaleString('en-IN')}
+            </button>
           </div>
 
           {/* QR Code */}
@@ -430,34 +289,6 @@ export default function PaymentPage() {
           )}
         </GlassCard>
       </motion.div>
-
-      {/* Online Razorpay Payment card — shown if payment not yet verified */}
-      {(payment?.status !== 'verified') && (
-        <motion.div variants={itemVariants}>
-          <GlassCard className="p-6 space-y-4 border-primary/30 bg-primary/5">
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div>
-                <h2 className="text-lg font-semibold text-foreground flex items-center gap-2">
-                  <CreditCard size={18} className="text-primary" />
-                  Pay Online Instantly (Razorpay)
-                </h2>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Pay securely via Cards, UPI, NetBanking, or Wallets and get instant confirmation.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={handleRazorpayPayment}
-                disabled={payingOnline}
-                className="rounded-xl bg-primary text-primary-foreground font-medium px-5 py-2.5 text-sm hover:bg-primary/90 disabled:opacity-50 transition-all flex items-center gap-2 shadow-sm shrink-0"
-              >
-                <CreditCard size={16} />
-                {payingOnline ? 'Initiating Payment...' : 'Pay Online Now'}
-              </button>
-            </div>
-          </GlassCard>
-        </motion.div>
-      )}
 
       {/* Upload form — shown if payment not yet verified */}
       {(payment?.status !== 'verified') && (

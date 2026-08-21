@@ -111,6 +111,9 @@ async function login(
   if (!user) {
     throw AppError.unauthorized('Invalid email or password');
   }
+  if (!user.isActive) {
+    throw AppError.unauthorized('This account has been deactivated. Please contact the administrator.');
+  }
 
   const passwordMatches = await bcrypt.compare(input.password, user.passwordHash);
   if (!passwordMatches) {

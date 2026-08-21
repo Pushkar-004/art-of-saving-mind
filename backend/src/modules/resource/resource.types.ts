@@ -7,6 +7,8 @@ export interface ResourceDTO {
   category: ResourceCategory;
   fileUrl: string;
   fileName: string;
+  thumbnailUrl: string | null;
+  isPublished: boolean;
   uploadedBy: string;
   uploadedByName: string;
   createdAt: string; // ISO timestamp

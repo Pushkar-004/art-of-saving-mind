@@ -51,7 +51,7 @@ export default function PatientDashboardLayout({ children }: { children: ReactNo
     if (!isLoading && !isAuthenticated) {
       router.push('/auth/login')
     } else if (!isLoading && isAuthenticated && user?.role !== 'patient') {
-      router.push('/dashboard/admin')
+      router.push(user?.role === 'admin' ? '/dashboard/admin' : '/dashboard/psychologist')
     }
   }, [isLoading, isAuthenticated, user, router])
 

@@ -79,7 +79,7 @@ function isRestrictedRequest(message: string): boolean {
 }
 
 const RESTRICTED_RESPONSE =
-  "That's something I'm not able to help with — I can't diagnose conditions or advise on medication or medical treatment. A licensed mental health professional or doctor is the right person to ask about this; Miss Pooja can help during your next session. In the meantime, I'm happy to talk through stress relief, sleep, mindfulness, or general emotional wellness if that would help.";
+  "That's something I'm not able to help with — I can't diagnose conditions or advise on medication or medical treatment. A licensed mental health professional or doctor is the right person to ask about this; Miss. Pooja Sunil Ghadge can help during your next session. In the meantime, I'm happy to talk through stress relief, sleep, mindfulness, or general emotional wellness if that would help.";
 
 // -----------------------------------------------------------------
 // OpenAI client — lazily constructed so the server can still boot
