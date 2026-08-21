@@ -4,12 +4,16 @@
   "private": true,
   "description": "Backend API for Psychologist Practice Management System (Phase 1: foundation + auth)",
   "main": "dist/server.js",
+  "engines": {
+    "node": ">=18.18.0"
+  },
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only -r tsconfig-paths/register src/server.ts",
-    "build": "prisma generate && tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
+    "postinstall": "node scripts/prisma-generate.js",
+    "build": "node scripts/prisma-generate.js && tsc -p tsconfig.json && tsc-alias -p tsconfig.json",
     "start": "node dist/server.js",
     "lint": "eslint . --ext .ts",
-    "prisma:generate": "prisma generate",
+    "prisma:generate": "node scripts/prisma-generate.js",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
@@ -17,6 +21,16 @@
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/cookie-parser": "^1.4.7",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.6",
+    "@types/morgan": "^1.9.9",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^20.14.0",
+    "@types/node-cron": "^3.0.11",
+    "@types/nodemailer": "^6.4.16",
     "@types/pdfkit": "^0.17.6",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.6",
@@ -32,22 +46,12 @@
     "openai": "^4.68.0",
     "pdfkit": "^0.19.1",
     "prisma": "^5.22.0",
+    "tsc-alias": "^1.9.1",
+    "typescript": "^5.5.4",
     "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
-    "@types/cookie-parser": "^1.4.7",
-    "@types/cors": "^2.8.17",
-    "@types/express": "^4.17.21",
-    "@types/jsonwebtoken": "^9.0.6",
-    "@types/morgan": "^1.9.9",
-    "@types/multer": "^1.4.12",
-    "@types/node": "^20.14.0",
-    "@types/node-cron": "^3.0.11",
-    "@types/nodemailer": "^6.4.16",
     "ts-node-dev": "^2.0.0",
-    "tsc-alias": "^1.9.1",
-    "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.5.4"
+    "tsconfig-paths": "^4.2.0"
   }
 }
