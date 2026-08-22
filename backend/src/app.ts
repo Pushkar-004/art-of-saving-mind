@@ -28,14 +28,20 @@ import { availabilityService } from '@/modules/availability/availability.service
 
 export function createApp(): Application {
   const app = express();
-
+  const allowedOrigins = env.CORS_ORIGIN.split(',').map((o) => o.trim());
   app.use(helmet());
 app.use(
-    cors({
-      origin: env.CORS_ORIGIN,
-      credentials: true,
-    }),
-  );
+  cors({
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error(`Not allowed by CORS: ${origin}`));
+      }
+    },
+    credentials: true,
+  }),
+);
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
